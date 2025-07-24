@@ -110,19 +110,6 @@ void callback(const char* topic, byte * payload, unsigned int length) {
       }
     }
 #endif
-#ifdef USE_ONEWIRE
-    JsonVariant ow_sleeptime = obj["OW_WAIT_TIME"];
-    if ( ow_sleeptime ) {
-      mqtt_param_rec = true; // this will cause the parameter to be erased from queue
-      int st = ow_sleeptime.as<int>();
-      log_d("Found member OW_WAIT_TIME: %d", st);
-      if ( OW_WAIT_TIME != st) {
-        OW_WAIT_TIME = st;
-        // store in EEPROM
-        pref.setInt("OW_WAIT_TIME", st);
-      }
-    }
-#endif
   }
 }
 

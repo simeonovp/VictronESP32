@@ -43,22 +43,6 @@
 // rename to NO_USE_OTA if you do not have a webserver that can server new firmware
 #define USE_OTA
 
-//
-// Use OneWire temperature sensors 
-//
-#define USE_ONEWIRE
-
-#ifdef USE_ONEWIRE
-#define ONEWIRE_PIN 22
-/*
-   define the wait time between 2 attempts to send one wire data
-   300000 = every 5 minutes
-*/
-int OW_WAIT_TIME = 10; // in s
-time_t last_ow;
-#endif
-
-
 
 #ifdef USE_SSL
 /*
@@ -131,10 +115,6 @@ int mqtt_server_count = sizeof(mqtt_server) / sizeof(mqtt_server[0]);
 // e.g. /MPPT75-15/PID  for Product ID
 String MQTT_PREFIX = "/MPPT75-15NOSSL";
 String MQTT_PARAMETER = "/MPPT75-15NOSSL/Parameter"; 
-#ifdef USE_ONEWIRE
-String MQTT_ONEWIRE = "/MPPT75-15NOSSL/OneWire";
-#endif
-
 
 #ifdef USE_OTA
 /*
