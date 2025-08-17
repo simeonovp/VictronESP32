@@ -29,6 +29,8 @@
    SOFTWARE.
 */
 
+#ifndef CONFIG_H
+#define CONFIG_H
 /*
    Defines that activate features like OTA (over the air update)
    or Acitve/Passive mode
@@ -41,8 +43,9 @@
 
 // Activate Over The Air Update of firmware
 // rename to NO_USE_OTA if you do not have a webserver that can server new firmware
-#define USE_OTA
+//#define USE_OTA
 
+#define USE_VICTRON_FORMAT
 
 #ifdef USE_SSL
 /*
@@ -90,8 +93,8 @@ const char* rootCACertificate = \
 
 // WiFi SSID'S and passwords
 // the strongest WiFi station will be used
-const char* ssid[] = {"SSID1", "SSID2", "SSID3"};
-const char* pw[] = {"PW_SSID1", "PW_SSID2", "PW_SSID3"};
+const char* ssid[] = {"Camper", "GOWLAN", "Caravan"};
+const char* pw[] = {"1107199104041993", "0404199311071991", "1107199104041993"};
 
 /*
    MQTT parameters
@@ -101,26 +104,27 @@ const char* pw[] = {"PW_SSID1", "PW_SSID2", "PW_SSID3"};
    using your id
 */
 #define MQTT_MAX_RETRIES 3   // maximum retires to reach a MQTT broker
-const char* mqtt_server[] = {"IP_MQTT1", "IP_MQTT2"};
+const char* mqtt_server[] = {"192.168.169.227", "192.168.193.231", "192.168.68.223"};
 // no SSL ports
-const uint16_t mqtt_port[] = {1883, 1883};
+const uint16_t mqtt_port[] = {1883, 1883, 1883};
 // SSL ports
-//const uint16_t mqtt_port[] = {8883, 8883};
-const char* mqtt_clientID[] = {"clientID", "clientID"};
-const char* mqtt_username[] = {"mqttUserName", "mqttUserName"};
-const char* mqtt_pw[] = {"mqttUserPW", "mqttUserPW"};
+//const uint16_t mqtt_port[] = {8883, 8883, 8883};
+const char* mqtt_clientID[] = {"victronESP32_1", "victronESP32_1", "victronESP32_1"};
+const char* mqtt_username[] = {"admin", NULL, NULL};
+const char* mqtt_pw[] = {"888888", NULL, NULL};
 int mqtt_server_count = sizeof(mqtt_server) / sizeof(mqtt_server[0]);
 
 // this is the MQTT prefix; below that we use the string from VE.Direct
 // e.g. /MPPT75-15/PID  for Product ID
-String MQTT_PREFIX = "/MPPT75-15NOSSL";
-String MQTT_PARAMETER = "/MPPT75-15NOSSL/Parameter"; 
+// e.g. /N/<VRM ID>/solarcharger/0/Pv/0/V
+String MQTT_PREFIX = "N/c0619ab5b2ba/vedirect/0";
+String MQTT_PARAMETER = MQTT_PREFIX + "/Parameter"; 
 
 #ifdef USE_OTA
 /*
    the binary file to look for
 */
-#define SKETCH_NAME "VE.Direct2MQTT.ino.esp32.bin"  // sketch name and binary
+#define SKETCH_NAME "VictronESP32.ino.esp32.bin"  // sketch name and binary
 /*
    the URL of he update
    Note: the php script file.php returns a 302 "not modified" if the checksum of the current sketch and the binary
@@ -146,6 +150,38 @@ time_t last_ota;
    The sending line does not need any modification. The ESP uses 3.3V and that's it. A 5V device
    should be able to read that voltage as input
 */
+/*
+//Pinleiste
+GND   IO25
+IO32  IO33
+IO05  IO12
+IO34  IO35
+IO18  VDD
+GND   VDD
+
+UART0 → Standard, verbunden mit USB (TX=GPIO1, RX=GPIO3) → für Upload & Serial Monitor
+UART1 → frei verfügbar (Standard-TX=GPIO10, RX=GPIO9, aber kann beliebig gemappt werden)
+UART2 → frei verfügbar (Standard-TX=GPIO17, RX=GPIO16, aber kann beliebig gemappt werden)
+
+RS485 auf dem TTGO RS485-CAN Board
+
+Der MAX485-Chip ist mit dem ESP32 verdrahtet:
+UART2 TX → GPIO17 (TX2)
+UART2 RX → GPIO16 (RX2)
+RE/DE (Sendesteuerung) hängt an GPIO21
+
+Der SN65HVD230 CAN Transceiver ist verbunden mit:
+TX (CANTX) → GPIO25
+RX (CANRX) → GPIO26
+
+
+Lösung für LILYGO XY_32_CAN_RS485 v1.1:
+UART0 (GPIO1/3): bleibt für USB/PC (Programmieren + Logs).
+UART1 (GPIO16/17): bleibt für RS485/VE.Bus.
+CAN (GPIO25/26): wird über TWAI für VE.Can genutzt.
+UART2: kannst du auf zwei freie Pins routen, z. B.: RX=GPIO33, TX=GPIO32
+*/
+
 #ifndef VEDIRECT_RX
 #define VEDIRECT_RX 33  // connected to TX of the VE.Direct device; ATTENTION divider may be needed, see abowe
 #endif
@@ -153,26 +189,28 @@ time_t last_ota;
 #define VEDIRECT_TX 32 // connected to RX of the VE:DIRECT device
 #endif
 
-/*
-   Depending on the DE.Direct device there will be several Key/Value pairs;
-   Define the maximum count of key/value pairs
+/**
+  Depending on the DE.Direct device (see VeDirectParameters.h) there will be several Key/Value pairs
+  Define the maximum count of key/value pairs
 */
 #define MAX_KEY_VALUE_COUNT 30
 
-/*
-   Number of Key-Value blocks we can buffer
-   MQTT may be slower than one second, especially when we have to reconnect
-   this is the number of buffers we can keep
+/**
+  Number of Key-Value blocks we can buffer
+  MQTT may be slower than one second, especially when we have to reconnect
+  this is the number of buffers we can keep
 */
-#define MAX_BLOCK_COUNT 5
+#define MAX_BLOCK_COUNT 8
 
-/*
-   Wait time in Loop
-   this determines how many frames are send to MQTT
-   if wait time is e.g. 10 minutes, we will send only every 10 minutes to MQTT
-   Note: only the last incoming block will be send; all previous blocks will be discarded
-   Wait time is in seconds
-   Waittime of 1 or 0 means every received packet will be transmitted to MQTT
-   Packets during OTA or OneWire will be discarded
+/**
+  Wait time in Loop
+  this determines how many frames are send to MQTT
+  if wait time is e.g. 10 minutes, we will send only every 10 minutes to MQTT
+  Note: only the last incoming block will be send; all previous blocks will be discarded
+  Wait time is in seconds
+  Waittime of 1 or 0 means every received packet will be transmitted to MQTT
+  Packets during OTA or OneWire will be discarded
 */
 int VE_WAIT_TIME = 1; // in s
+
+#endif // CONFIG_H

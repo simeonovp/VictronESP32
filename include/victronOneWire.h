@@ -62,38 +62,45 @@ boolean meassureOneWire() {
     delay(1000);
     deviceCount = sensors.getDeviceCount();
     log_d("Found %d devices", deviceCount);
-    for (int i = 0; i < deviceCount; i++) {
+    for (int i = 0; i < deviceCount; i++)
+    {
       float temp = sensors.getTempCByIndex(i);
-      if ( temp > 200 || temp < -80 ) {
+      if (() temp > 200 || temp < -80 )
+      {
         onewire_good_values = false;
       }
     }
-  } while (m_count >= 0 && !onewire_good_values);
+  }
+  while (m_count >= 0 && !onewire_good_values);
   log_d("End");
   return true;
 }
 
-boolean sendOneWireMQTT() {
+boolean sendOneWireMQTT()
+{
   log_d("Start");
   meassureOneWire();
 
   log_d("Found %d One wire temp sensors", deviceCount);
   float c[deviceCount];
 
-  if ( !onewire_good_values || deviceCount <= 0) {
+  if ( !onewire_good_values || deviceCount <= 0)
+  {
     log_d("No ONE Wire temp sensors found; END");
     return false;
   }
 
-  for (int i = 0; i < deviceCount; i++) {
+  for (int i = 0; i < deviceCount; i++)
+  {
     DeviceAddress addr;
     sensors.getAddress((uint8_t *)&addr, (uint8_t) i);
     c[i] = sensors.getTempCByIndex(i);
     log_d("DS18: %s, Temp: %f", addr2String(addr).c_str(), c[i]);
   }
 
-  if ( !espMQTT.connected()) {
-    startMQTT();
+  if (!victronMQTT.connected())
+  {
+    MQTTStart();
   }
 
   StaticJsonDocument<300> doc;
@@ -101,23 +108,29 @@ boolean sendOneWireMQTT() {
   //
   int count = deviceCount > MAX_DS18SENSORS ? MAX_DS18SENSORS : deviceCount;
   log_d("Sending: %d Devices", count);
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++)
+  {
     DeviceAddress addr;
     sensors.getAddress((uint8_t *)&addr, (uint8_t) i);
     String s = addr2String(addr);
     doc[s] = c[i];
-  }  char s[300];
+  }
+  char s[300];
   serializeJson(doc, s);
-  if ( espMQTT.publish(MQTT_ONEWIRE.c_str(), s)) {
+  if (victronMQTT.publish(MQTT_ONEWIRE.c_str(), s))
+  {
     log_d("Sending OneWire Data: %s - OK", s);
-  } else {
+  }
+  else
+  {
     log_d("Sending OneWire %s Data: %s - ERROR", MQTT_ONEWIRE.c_str(), s);
   }
-  espMQTT.loop();
-  if ( mqtt_param_rec ) {
+  victronMQTT.loop();
+  if (mqtt_param_rec)
+  {
     // avoid loops by sending only if we received a valid parameter
     log_i("Removing parameter from Queue: %s", MQTT_PARAMETER.c_str());
-    espMQTT.publish(MQTT_PARAMETER.c_str(), "", true);
+    victronMQTT.publish(MQTT_PARAMETER.c_str(), "", true);
   }
   log_d("End");
   return true;

@@ -44,30 +44,25 @@ typedef struct VEDirectBlock_t {
   int serial;
 };
 
-
-
-
 class VEDirect {
   public:
     void begin();
     boolean addToASCIIBlock(String s);
     boolean getNewestBlock(VEDirectBlock_t *b);
 
-
   private:
-
-    int _serial = 0; // Serial number of the block
     boolean _endOfASCIIBlock(StringSplitter *s);
     void _increaseNewestBlock();
     int _getNewestBlock();
-    VEDirectBlock_t block[MAX_BLOCK_COUNT];
+
     portMUX_TYPE _new_block_mutex = portMUX_INITIALIZER_UNLOCKED;  // mutex to protect _newest_block
+    TaskHandle_t tHandle = NULL;
+    int _serial = 0; // Serial number of the block
+    VEDirectBlock_t block[MAX_BLOCK_COUNT];
     volatile int _newest_block = -1;     // newest complete block; ready for consumption
     volatile boolean _has_new_block = false;
     int _incoming_block = 0;   // block currently filled; candidate for next newest block
     int _incoming_keyValueCount = 0;
-    TaskHandle_t tHandle = NULL;
-
 };
 
 /*
@@ -75,34 +70,33 @@ class VEDirect {
    The task is independant from the main task so it should not loose data because
    of MQTT reconnects or other time consuming duties in the main task
 */
-void serialTask(void * pointer) {
-  VEDirect *ve = (VEDirect *) pointer;
-  String data;
-  startVEDirectSerial();
-  while ( true ) {
-    if ( Serial1.available()) {
-      //      char s = Serial1.read();
-      //      log_d("Read: %c:%d", s, s);
-      //      if ( s == '\n') {
-      //        log_d("received start");
-      // begin of a datafield or frame
-      data = Serial1.readStringUntil('\n'); // read label and value
-      //log_d("Received Data: \"%s\"", data.c_str());
-      if ( data.length() > 0) {
-        data.replace("\r\n", ""); // Strip carriage return newline; not part of the data
-        ve->addToASCIIBlock(data);
-        log_d("Stack free: %5d", uxTaskGetStackHighWaterMark(NULL));
+void serialTask(void* pointer)
+{
+  auto ve = static_cast<VEDirect*>(pointer);
+  String line;
+  startVEDirectSerial(); // configuriere Serial1
+  for (;;) {
+    while (Serial1.available())
+    {
+      char c = Serial1.read();
+      if (c == '\n')
+      {
+        line.trim(); // remove CR, LF, Whitespace
+        if (line.length() > 0)
+        {
+          ve->addToASCIIBlock(line);
+          log_d("Stack free: %5d", uxTaskGetStackHighWaterMark(NULL));
+        }
+        line = "";
       }
-      //}
-    } else {
-      // no serial data available; have a nap
-      delay(1);
+      else
+      {
+        line += c;
+      }
     }
+    vTaskDelay(pdMS_TO_TICKS(1)); // clean sleep
   }
 }
-
-
-
 
 void VEDirect::begin() {
   _newest_block = -1;
@@ -144,16 +138,19 @@ boolean VEDirect::_endOfASCIIBlock(StringSplitter *s) {
 boolean VEDirect::addToASCIIBlock(String s) {
   StringSplitter sp = StringSplitter(s, '\t', 2);
   String historical = "";
-  if ( sp.getItemCount() == 2) { // sometime checksum has historical data attached
+  if (sp.getItemCount() == 2) { // sometime checksum has historical data attached
     log_d("Received Key/value: \"%s\":\"%s\"", sp.getItemAtIndex(0).c_str(), sp.getItemAtIndex(1).c_str());
-    if ( _incoming_keyValueCount < MAX_KEY_VALUE_COUNT) {
+
+    //sip--
+    if (_incoming_keyValueCount < MAX_KEY_VALUE_COUNT) {
       block[_incoming_block].b[_incoming_keyValueCount].key = sp.getItemAtIndex(0);
-      if ( sp.getItemAtIndex(0).equals("Checksum")) {
+      if (sp.getItemAtIndex(0).equals("Checksum")) {
         char s[10];
         sprintf(s, "%02x", sp.getItemAtIndex(1).charAt(0));
         block[_incoming_block].b[_incoming_keyValueCount].value = String(s);
         historical = sp.getItemAtIndex(1).substring(1);
-      } else {
+      }
+      else {
         block[_incoming_block].b[_incoming_keyValueCount].value = sp.getItemAtIndex(1);
       }
       block[_incoming_block].kvCount = ++_incoming_keyValueCount;
@@ -164,13 +161,16 @@ boolean VEDirect::addToASCIIBlock(String s) {
         log_d("Historical data:\"%s\"", historical.c_str());
         block[_incoming_block].kvCount = ++_incoming_keyValueCount;
       }
-    } else {
+    }
+    else
+    {
       // buffer full but not end of frame
       // so this is not a good frame -> delete frame
       _incoming_keyValueCount = 0;
       return false; // buffer full
     }
-    if ( _endOfASCIIBlock(&sp)) {
+    if (_endOfASCIIBlock(&sp))
+    {
       // good frame; increase newest frame pointer
       block[_incoming_block].serial = _serial++;
       _increaseNewestBlock();
@@ -181,7 +181,9 @@ boolean VEDirect::addToASCIIBlock(String s) {
     }
     // not the end of a frame yet; continue
     return false;
-  } else {
+  }
+  else
+  {
     log_e("Receviced Data not correct: \"%s\"", s.c_str());
     //delete splitter;
     return false;
@@ -203,7 +205,5 @@ boolean VEDirect::getNewestBlock(VEDirectBlock_t *b) {
   }
   return true;
 }
-
-
 
 #endif
