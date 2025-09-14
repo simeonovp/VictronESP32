@@ -3,6 +3,7 @@
 
 #include "LockFreeStringQueue.h"
 #include "VeDirectParameters.h"
+#include "VeDirectRegister.h"
 #include <StringSplitter.h>
 #include <list>
 #include <string>
@@ -36,9 +37,10 @@ private:
   static void ReadTask(void* pInstance);
   static void ParseTask(void* pInstance);
 
-  bool AddParameter(const String& s);
-  bool AddHex(const String& s);
+  bool AddStringParameter(const String& s);
+  bool AddHexParameter(const String& s);
   bool ProcessParameter();
+  bool ProcessHexParameter(const String& line);
 
   HookFunction mOnChange{ nullptr };
   HookFunction mOnData{ nullptr };
@@ -64,46 +66,132 @@ void VeDirect::Init()
 #endif // SUPPORT_VEDIRECT_BLOCKS
 }
 
+uint8_t HexCharsToByte(char hi, char lo)
+{
+  uint8_t high = (hi >= '0' && hi <= '9') ? hi - '0' :
+                 (hi >= 'A' && hi <= 'F') ? hi - 'A' + 10 :
+                 (hi >= 'a' && hi <= 'f') ? hi - 'a' + 10 : 0;
+  uint8_t low  = (lo >= '0' && lo <= '9') ? lo - '0' :
+                 (lo >= 'A' && lo <= 'F') ? lo - 'A' + 10 :
+                 (lo >= 'a' && lo <= 'f') ? lo - 'a' + 10 : 0;
+  return (high << 4) | low;
+}
+
 void VeDirect::ReadTask(void* pInstance)
 {
   log_d("ReadTask");
   auto pVeDirect = static_cast<VeDirect*>(pInstance);
   Serial1.begin(19200, SERIAL_8N1, VEDIRECT_RX, VEDIRECT_TX);
-  String line;
-  auto isAscii = true;
+  String asciiBuf;
+  String hexBuf;
+  String nibbleBuf;
+  int hexExpectedBytes = 0;
+  uint8_t hexChecksum = 0u;
+  uint8_t hexCount = 0u;
+  
+
   for (;;) 
   {
     while (Serial1.available()) 
     {
       auto c = static_cast<char>(Serial1.read());
-      switch (c)
+
+      if (hexExpectedBytes == 0)
       {
-      case '\n':
-        line.trim(); // remove CR, LF, Whitespace
-        if (line.length() > 0)
+        if (('\n' == c) || ('\r' == c))
         {
-          if (isAscii) pVeDirect->AddParameter(line);
-          else pVeDirect->AddHex(line);
-          log_d("Stack free: %5d", uxTaskGetStackHighWaterMark(nullptr));
+          if (!asciiBuf.isEmpty())
+          {
+            pVeDirect->AddStringParameter(asciiBuf);
+            asciiBuf.clear();
+          }
         }
-        line = "";
-        isAscii = true;
-        break; 
-      case ' ':
-        //skip
-        break;
-      case ':':
-        if (line.isEmpty()) isAscii = false;
-        break;
-      default:
-        line += c;
+        else if (asciiBuf.isEmpty() && (':' == c))
+        {
+          // HEX start detected
+          hexBuf = ":";
+          hexExpectedBytes = -1;
+          hexChecksum = 0;
+        }
+        else
+        {
+          asciiBuf += c;
+        }
+      }
+
+      // HEX Mode
+      else
+      {
+        // auto ParserResetHex = [&]()
+        // {
+        //   inHex = false;
+        //   hexCount = 0;
+        //   hexExpected = -1;
+        //   hexChecksum = 0;
+        // };
+
+        hexBuf += c;
+
+        // HEX mode: decode nibble stream into bytes
+        static int nibble = -1;
+
+        int val = -1;
+        if (c >= '0' && c <= '9') val = c - '0';
+        else if (c >= 'A' && c <= 'F') val = 10 + (c - 'A');
+        else if (c >= 'a' && c <= 'f') val = 10 + (c - 'a');
+        else continue;  // ignore whitespace etc.
+
+        if (nibble < 0)
+        {
+          nibble = val;
+        }
+        else
+        {
+          uint8_t byteVal = (nibble << 4) | val;
+          nibble = -1;
+
+          hexCount++;
+          hexChecksum += byteVal;
+
+          if ((3 == hexCount) && (0 > hexExpectedBytes))
+          {
+            hexExpectedBytes = 3 + byteVal + 1; // ID+LEN+Payload+Checksum
+          }
+
+          if ((0 < hexExpectedBytes) && (hexCount >= hexExpectedBytes))
+          {
+            if (hexChecksum == 0)
+            {
+              pVeDirect->AddStringParameter(hexBuf);
+            }
+            hexBuf.clear();
+            hexExpectedBytes = 0u; // back to ASCII
+            hexChecksum = 0u;
+            hexCount = 0u;
+          }
+        }
+
+        // If field set, wait for first 3-Bytes ID+LEN
+        if ((-1 == hexExpectedBytes) && (6 <= hexBuf.length()))
+        {
+          uint8_t lenByte = HexCharsToByte(hexBuf[4], hexBuf[5]);
+          hexExpectedBytes = static_cast<int>(lenByte);
+        }
+
+        // Check, if HEX-frame receive completed
+        if ((0 < hexExpectedBytes) && (hexBuf.length() >= (hexExpectedBytes*2 + 6)))
+        {
+          pVeDirect->AddStringParameter(hexBuf);
+          hexBuf.clear();
+          hexExpectedBytes = 0; // back to ASCII
+        }
       }
     }
     vTaskDelay(pdMS_TO_TICKS(1)); // clean sleep
   }
 }
 
-bool VeDirect::AddParameter(const String& s)
+bool VeDirect::AddStringParameter(const String& s)
 {
   taskENTER_CRITICAL(&mLinesMutex);
   auto result = mLines.enqueue(s);
@@ -112,7 +200,7 @@ bool VeDirect::AddParameter(const String& s)
   return result;
 }
 
-bool VeDirect::AddHex(const String& s)
+bool VeDirect::AddHexParameter(const String& s)
 {
   //sip TODO
   return true;
@@ -138,6 +226,9 @@ bool VeDirect::ProcessParameter()
   taskEXIT_CRITICAL(&mLinesMutex);
   if (!result) return false;
 
+  if (s.isEmpty()) return true;
+  if (':' == s[0]) return ProcessHexParameter(s);
+
   StringSplitter sp = StringSplitter(s, '\t', 2);
   if (sp.getItemCount() != 2)
   {
@@ -149,8 +240,6 @@ bool VeDirect::ProcessParameter()
   }
 
   auto key = sp.getItemAtIndex(0);
-  auto value = sp.getItemAtIndex(1);
-  auto it = parameterMap.find(key);
   if (key == "Checksum")
   {
 #ifdef SUPPORT_VEDIRECT_BLOCKS
@@ -158,6 +247,8 @@ bool VeDirect::ProcessParameter()
 #endif // SUPPORT_VEDIRECT_BLOCKS
     return true;
   }
+  auto value = sp.getItemAtIndex(1);
+  auto it = parameterMap.find(key);
 
   if (parameterMap.end() == it)
   {
@@ -177,6 +268,35 @@ bool VeDirect::ProcessParameter()
   return true;
 }
 
+const VRegDef* LookupReg(uint16_t id)
+{
+  for (auto* v = vregDefs; v->id != 0; ++v)
+  {
+    if (v->id == id) return v;
+  }
+  return nullptr;
+}
+
+bool VeDirect::ProcessHexParameter(const String& line)
+{
+  // if (!line.startsWith(":")) return;
+  uint16_t id = strtol(line.substring(1,5).c_str(), nullptr, 16);
+  //uint8_t len = strtol(line.substring(5,7).c_str(), nullptr, 16);
+  String data = line.substring(7);
+
+  auto v = LookupReg(id);
+  if (!v)
+  {
+    Serial.printf("Unknown VREG 0x%04X raw=%s\n", id, data.c_str());
+    return true;
+  }
+
+  long value = strtol(data.c_str(), nullptr, 16);
+  float scaled = value * v->scale;
+  Serial.printf("%s = %.2f %s\n", v->name, scaled, v->unit);
+  return false; //TODO
+}
+
 void VeDirect::ReadLog(const std::string& log)
 {
   log_d("VeDirect ReadLog");
@@ -190,7 +310,7 @@ void VeDirect::ReadLog(const std::string& log)
     {
       log_d("VeDirect ReadLog line: %s", line.c_str());
       line = std::regex_replace(line, std::regex(" +"), "\t");
-      AddParameter(line.c_str());
+      AddStringParameter(line.c_str());
       vTaskDelay(pdMS_TO_TICKS(1));
     }
   }

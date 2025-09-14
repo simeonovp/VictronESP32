@@ -114,9 +114,36 @@ const char* mqtt_username[] = {"admin", NULL, NULL};
 const char* mqtt_pw[] = {"888888", NULL, NULL};
 int mqtt_server_count = sizeof(mqtt_server) / sizeof(mqtt_server[0]);
 
+/*
+auf dem lokalen Mosquitto-Broker
+
+N/<deviceInstance>/<service>/<dbus-path>
+R/<deviceInstance>/<service>/<dbus-path>
+W/<deviceInstance>/<service>/<dbus-path>
+
+N/ → Notification (Datenänderungen, die vom Venus OS ausgehen)
+R/ → Request (lesen)
+W/ → Write (setzen/ändern)
+
+serviceName = com.victronenergy.solarcharger.vedirect
+deviceInstance = 100
+
+#list existing instances
+dbus-send --system --print-reply \
+  --dest=com.victronenergy.Bus \
+  /Mgr \
+  org.freedesktop.DBus.Properties.Get \
+  string:"com.victronenergy.BusItem" \
+  string:"Devices"
+
+Example:
+W/<qos>/com.victronenergy.<service>.<id>/<path>
+W/0/com.victronenergy.solarcharger.vedirect/Pv/0/Power 82
+*/
 // this is the MQTT prefix; below that we use the string from VE.Direct
 // e.g. /MPPT75-15/PID  for Product ID
 // e.g. /N/<VRM ID>/solarcharger/0/Pv/0/V
+String VrmPortalId = "d83add784634"; // rpi11
 String MQTT_PREFIX = "N/c0619ab5b2ba/vedirect/0";
 String MQTT_PARAMETER = MQTT_PREFIX + "/Parameter"; 
 
@@ -180,6 +207,12 @@ UART0 (GPIO1/3): bleibt für USB/PC (Programmieren + Logs).
 UART1 (GPIO16/17): bleibt für RS485/VE.Bus.
 CAN (GPIO25/26): wird über TWAI für VE.Can genutzt.
 UART2: kannst du auf zwei freie Pins routen, z. B.: RX=GPIO33, TX=GPIO32
+
+VeDirect Pinout:
+1 - GND (Black)
+2 - Rx (Red)
+3 - Tx (White)
+4 - Vcc (Yellow)
 */
 
 #ifndef VEDIRECT_RX
