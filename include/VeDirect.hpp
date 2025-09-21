@@ -3,6 +3,7 @@
 
 #include "LockFreeStringQueue.h"
 #include "VeDirectParameters.h"
+#include "VeDirectRegister.h"
 #include <StringSplitter.h>
 #include <list>
 #include <string>
@@ -76,30 +77,53 @@ void VeDirect::ReadTask(void* pInstance)
     while (Serial1.available()) 
     {
       auto c = static_cast<char>(Serial1.read());
+
+#ifdef ONLY_LOGGER
+      char buf[3];
+      if ((' ' > c) || (127 < c))
+      {
+        sprintf(buf, "\\x%02X", c);
+        line += buf;
+        if (0x0a == c)
+        {
+          Serial.println(line);
+          line.clear();
+        }
+      }
+      else line += c;
+#else // ONLY_LOGGER
       switch (c)
       {
       case '\n':
-        line.trim(); // remove CR, LF, Whitespace
-        if (line.length() > 0)
+        //line.trim(); // remove CR, LF, Whitespace
+        if (!line.isEmpty())
         {
           if (isAscii) pVeDirect->AddParameter(line);
           else pVeDirect->AddHex(line);
-          log_d("Stack free: %5d", uxTaskGetStackHighWaterMark(nullptr));
+          line.clear();
+          //log_d("Stack free: %5d", uxTaskGetStackHighWaterMark(nullptr));
         }
-        line = "";
         isAscii = true;
         break; 
       case ' ':
+      case '\r':
         //skip
         break;
       case ':':
-        if (line.isEmpty()) isAscii = false;
+        if (!line.isEmpty())
+        {
+          if (isAscii) pVeDirect->AddParameter(line);
+          else pVeDirect->AddHex(line);
+          line.clear();
+        }
+        isAscii = false;
         break;
       default:
         line += c;
       }
     }
     vTaskDelay(pdMS_TO_TICKS(1)); // clean sleep
+#endif // ONLY_LOGGER
   }
 }
 
