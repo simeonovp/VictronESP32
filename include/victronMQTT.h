@@ -77,7 +77,7 @@ void OnMQTTData(const char* topic, const uint8_t* payload, unsigned int length)
         pref.setInt("VE_WAIT_TIME", st);
       }
     }
-#ifdef USE_OTA
+#ifdef USE_V_OTA
     JsonVariant ota_sleeptime = obj["OTA_WAIT_TIME"];
     if (ota_sleeptime)
     {
@@ -126,7 +126,7 @@ bool MQTTEnd()
   return true;
 }
 
-void MQTTPublish(const String& key, const String& value)
+void MQTTPublish(const std::string& key, const std::string& value)
 {
   log_d("MQTTPublish \"%s\" = %s", key.c_str(), value.c_str());
   if (!victronMQTT.connected())
@@ -134,17 +134,17 @@ void MQTTPublish(const String& key, const String& value)
     MQTTStart();
   }
   victronMQTT.loop();
-  auto topic = MQTT_PREFIX + "/" + key;
+  auto topic = MQTT_PREFIX + "/" + key.c_str();
   topic.replace("#", ""); // # in a topic is a no go for MQTT
 
   String payload = "{\"value\":";
-  payload += value;
+  payload += value.c_str();
   payload += '}';
   payload.replace("\r\n", "");
 
   if (victronMQTT.publish(topic.c_str(), payload.c_str()))
   {
-    log_i("MQTT message sent succesfully: %s: \"%s\"", topic.c_str(), payload.c_str());
+    //sip++ log_i("MQTT message sent succesfully: %s: \"%s\"", topic.c_str(), payload.c_str());
   }
   else
   {
@@ -169,7 +169,7 @@ bool MQTTSendOPInfo()
   String topic = MQTT_PREFIX + "/" + "UTCBootTime";
   if (victronMQTT.publish(topic.c_str(), asctime(localtime(&last_boot))))
   {
-    log_i("MQTT message sent succesfully: %s: \"%s\"", topic.c_str(), asctime(localtime(&last_boot)));
+    //sip++ log_i("MQTT message sent succesfully: %s: \"%s\"", topic.c_str(), asctime(localtime(&last_boot)));
   }
   else
   {

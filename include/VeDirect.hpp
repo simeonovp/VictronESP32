@@ -1,23 +1,24 @@
-#ifndef VEDIRECT_HPP
-#define VEDIRECT_HPP
+#pragma once
 
 #include "LockFreeStringQueue.h"
 #include "VeDirectParameters.h"
 #include "VeDirectRegister.h"
-#include <StringSplitter.h>
+#include "VeDirectProt.h"
 #include <list>
+#include <vector>
 #include <string>
 #include <sstream>
 #include <regex>
-
-#define SUPPORT_VEDIRECT_BLOCKS
+#include <mutex>
+#include <queue>
 
 class VeDirect
 {
 public:
-  using HookFunction = std::function<void(const String& key, const String& value)>;
+  using HookFunction = std::function<void(const std::string& key, const std::string& value)>;
 
   void Init();
+  void Stop();
   void SetOnChangeHook(HookFunction f) { mOnChange = f; }
   void SetOnDataHook(HookFunction f) { mOnData = f; }
   void ReadLog(const std::string& log);
@@ -34,35 +35,60 @@ private:
     std::list<Parameter> parameters;
   };
 
+  static uint8_t HexCharsToByte(char hi, char lo);
   static void ReadTask(void* pInstance);
   static void ParseTask(void* pInstance);
 
-  bool AddParameter(const String& s);
-  bool AddHex(const String& s);
   bool ProcessParameter();
+  void ProcessHexParameter(const std::string& s);
+  void ProcessStringParameter(const std::string& s);
+  void Enqueue(const std::string& line);
+  bool Dequeue(std::string& out);
+  std::vector<std::string> Split(const std::string& s, char delimiter, size_t limit);
 
   HookFunction mOnChange{ nullptr };
   HookFunction mOnData{ nullptr };
   TaskHandle_t mReadTask{ nullptr };
-  portMUX_TYPE mLinesMutex;
-  LockFreeStringQueue mLines;
-#ifdef SUPPORT_VEDIRECT_BLOCKS
+  //sip---
+  // portMUX_TYPE mLinesMutex;
+  // LockFreeStringQueue mLines;
   TaskHandle_t mParseTask{ nullptr };
-  portMUX_TYPE mPacketsMutex;
-  LockFreeStringQueue mPackets;
-#endif // SUPPORT_VEDIRECT_BLOCKS
+  volatile bool mStopRequested{ false };
+  std::mutex mQueueMutex;  // ESP32 FreeRTOS: std::mutex oder portMUX_TYPE
+  std::queue<std::string> mQueue;
 };
 
 void VeDirect::Init()
 {
-  mLinesMutex = portMUX_INITIALIZER_UNLOCKED;
   // handler, name, size, instance, priority, (out) handle
   xTaskCreate(VeDirect::ReadTask,  "ReadTask",  10000,  this, configMAX_PRIORITIES - 3,  &mReadTask);
-
-#ifdef SUPPORT_VEDIRECT_BLOCKS
-  mPacketsMutex = portMUX_INITIALIZER_UNLOCKED;
   xTaskCreate(VeDirect::ParseTask,  "ParseTask",  10000,  this, 2, &mParseTask);
-#endif // SUPPORT_VEDIRECT_BLOCKS
+}
+
+void VeDirect::Stop()
+{
+  mStopRequested = true;
+  if (nullptr != mReadTask)
+  {
+    vTaskDelete(mReadTask);
+    mReadTask = nullptr;
+  }
+  if (nullptr != mParseTask)
+  {
+    vTaskDelete(mParseTask);
+    mParseTask = nullptr;
+  }
+}
+
+uint8_t VeDirect::HexCharsToByte(char hi, char lo)
+{
+  uint8_t high = (hi >= '0' && hi <= '9') ? hi - '0' :
+                 (hi >= 'A' && hi <= 'F') ? hi - 'A' + 10 :
+                 (hi >= 'a' && hi <= 'f') ? hi - 'a' + 10 : 0;
+  uint8_t low  = (lo >= '0' && lo <= '9') ? lo - '0' :
+                 (lo >= 'A' && lo <= 'F') ? lo - 'A' + 10 :
+                 (lo >= 'a' && lo <= 'f') ? lo - 'a' + 10 : 0;
+  return (high << 4) | low;
 }
 
 void VeDirect::ReadTask(void* pInstance)
@@ -70,9 +96,10 @@ void VeDirect::ReadTask(void* pInstance)
   log_d("ReadTask");
   auto pVeDirect = static_cast<VeDirect*>(pInstance);
   Serial1.begin(19200, SERIAL_8N1, VEDIRECT_RX, VEDIRECT_TX);
-  String line;
+  std::string line;
+  line.reserve(128);
   auto isAscii = true;
-  for (;;) 
+  while (!pVeDirect->mStopRequested) 
   {
     while (Serial1.available()) 
     {
@@ -96,27 +123,18 @@ void VeDirect::ReadTask(void* pInstance)
       {
       case '\n':
         //line.trim(); // remove CR, LF, Whitespace
-        if (!line.isEmpty())
+        if (!line.empty())
         {
-          if (isAscii) pVeDirect->AddParameter(line);
-          else pVeDirect->AddHex(line);
+          pVeDirect->Enqueue(line);
           line.clear();
+          xTaskNotifyGive(pVeDirect->mParseTask);
           //log_d("Stack free: %5d", uxTaskGetStackHighWaterMark(nullptr));
+          vTaskDelay(pdMS_TO_TICKS(1)); // clean sleep
         }
-        isAscii = true;
         break; 
       case ' ':
       case '\r':
         //skip
-        break;
-      case ':':
-        if (!line.isEmpty())
-        {
-          if (isAscii) pVeDirect->AddParameter(line);
-          else pVeDirect->AddHex(line);
-          line.clear();
-        }
-        isAscii = false;
         break;
       default:
         line += c;
@@ -125,80 +143,130 @@ void VeDirect::ReadTask(void* pInstance)
     vTaskDelay(pdMS_TO_TICKS(1)); // clean sleep
 #endif // ONLY_LOGGER
   }
-}
-
-bool VeDirect::AddParameter(const String& s)
-{
-  taskENTER_CRITICAL(&mLinesMutex);
-  auto result = mLines.enqueue(s);
-  taskEXIT_CRITICAL(&mLinesMutex);
-  if (!result) log_e("Queue voll! skip: \"%s\"", s.c_str());
-  return result;
-}
-
-bool VeDirect::AddHex(const String& s)
-{
-  //sip TODO
-  return true;
+  vTaskDelete(nullptr);
 }
 
 void VeDirect::ParseTask(void* pInstance)
 {
   log_d("ReadTask");
   auto pVeDirect = static_cast<VeDirect*>(pInstance);
-  for(;;)
+  while (!pVeDirect->mStopRequested) 
   {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     // process all available parameter from buffer
     while (pVeDirect->ProcessParameter()) yield();
-    vTaskDelay(pdMS_TO_TICKS(10));
+    // vTaskDelay(pdMS_TO_TICKS(10));
   }
+  vTaskDelete(nullptr);
 }
 
 bool VeDirect::ProcessParameter()
 {
-  String s;
-  taskENTER_CRITICAL(&mLinesMutex);
-  auto result = mLines.dequeue(s);
-  taskEXIT_CRITICAL(&mLinesMutex);
+  std::string s;
+  auto result = Dequeue(s);
   if (!result) return false;
+  if (!s.empty())
+  if (':' == s[0]) ProcessHexParameter(s);
+  else ProcessStringParameter(s);
+  return true;
+}
 
-  StringSplitter sp = StringSplitter(s, '\t', 2);
-  if (sp.getItemCount() != 2)
+void VeDirect::ProcessHexParameter(const std::string& s)
+{
+  uint8_t cs = 0u;
+  std::vector<uint8_t> bytes;
+  for (auto idx = 0u; (idx + 1) < s.length(); idx += 2)
   {
-    if ((sp.getItemCount() != 1) || (sp.getItemAtIndex(0) != "Checksum"))
+    auto b = HexCharsToByte((0u == idx) ? '0' : s[idx], s[idx + 1]);
+    cs += b;
+    bytes.push_back(b);
+  }
+  if (bytes.empty()) return;
+  if (0x55u != cs)
+  {
+    log_w("! Hex checksum error, bytes:%u, calculated:%02X, (%s)",
+      bytes.size(), cs, s.c_str());
+  }
+  auto comm = "";
+  switch (bytes[0])
+  {
+  case static_cast<uint8_t>(VeDirectProt::Command::Async):
+  case static_cast<uint8_t>(VeDirectProt::Response::Get):
+    comm = (0xAu == bytes[0]) ? "Async" : "Get";
+    if (5u > bytes.size())
     {
-      log_e("Receviced data not correct. Item count %u: \"%s\"", sp.getItemCount(), s.c_str());
+      log_w("Length error, received:%u, expected >= 5", bytes.size());
     }
-    return true;
+    else
+    {
+      auto reg = *reinterpret_cast<const uint16_t*>(&bytes[1]);
+      auto pDef = VeDirectProt::LookupRegDefs(reg);
+      if (nullptr != pDef)
+      {
+        log_i("[%s, reg:%04X] %s: (%s) %s", comm, reg,
+          pDef->name, to_string(pDef->type), ValueString(*pDef, &bytes[3u], (bytes.size() - 5u)));
+      }
+      else
+      {
+        log_i("Command %s, reg:%04X, data len:%u", comm, reg, bytes.size() - 5u);
+      }
+      //TODO
+      // auto flags = bytes[bytes.size() - 2u];
+      // auto cs = bytes[bytes.size() - 1u];
+    }
+    break;
+  case static_cast<uint8_t>(VeDirectProt::Response::Ping):
+    //TODO
+    break;
   }
 
-  auto key = sp.getItemAtIndex(0);
-  auto value = sp.getItemAtIndex(1);
+/*
+How to Use HEX-mode
+- Initial Connection: Connect your device to the VE.Direct port. 
+- Send a HEX Message: Send a valid HEX message to the device to switch it from Text-mode to HEX-mode. 
+- Receive Data: Process the HEX messages received from the device. 
+- Switch Back: If no more HEX messages are received for a period, the device will automatically revert to Text-mode. 
+
+#www.victronenergy.com/upload/documents/BlueSolar-HEX-protocol.pdf
+*/
+}
+
+void VeDirect::ProcessStringParameter(const std::string& s)
+{
+  auto sp = Split(s, '\t', 2);
+  if (sp.size() != 2)
+  {
+    if ((sp.size() != 1) || (sp.at(0) != "Checksum"))
+    {
+      log_e("Receviced data not correct. Item count %u: \"%s\"", sp.size(), s.c_str());
+    }
+    return;
+  }
+
+  auto key = sp.at(0);
+  auto value = sp.at(1);
   auto it = parameterMap.find(key);
   if (key == "Checksum")
   {
-#ifdef SUPPORT_VEDIRECT_BLOCKS
     //??
-#endif // SUPPORT_VEDIRECT_BLOCKS
-    return true;
+    return;
   }
 
   if (parameterMap.end() == it)
   {
-    log_e("Receviced unknown parameter: \"%s\" = %s", key.c_str(), value.c_str());
-    return true;
+    log_e("Receviced unknown parameter: \"%s\" = %s, (%s)", key.c_str(), value.c_str(), s.c_str());
+    return;
   }
 
   auto& param = it->second;
   auto& topic = param.mqttPath;
-  log_d("ProcessParameter \"%s\" = %s", key.c_str(), value.c_str());
+  log_d("ProcessStringParameter \"%s\" = %s", key.c_str(), value.c_str());
   if (nullptr != mOnData) mOnData(topic, value);
   if (value != param.lastValue)
   {
     param.lastValue = value;
     if (nullptr != mOnChange) mOnChange(topic, value);
   }
-  return true;
 }
 
 void VeDirect::ReadLog(const std::string& log)
@@ -214,10 +282,47 @@ void VeDirect::ReadLog(const std::string& log)
     {
       log_d("VeDirect ReadLog line: %s", line.c_str());
       line = std::regex_replace(line, std::regex(" +"), "\t");
-      AddParameter(line.c_str());
+      Enqueue(line);
       vTaskDelay(pdMS_TO_TICKS(1));
     }
   }
 }
 
-#endif // VEDIRECT_HPP
+void VeDirect::Enqueue(const std::string& line)
+{
+  std::lock_guard<std::mutex> lock(mQueueMutex);
+  mQueue.push(line);  // sichere Kopie auf Heap
+}
+
+bool VeDirect::Dequeue(std::string& out)
+{
+  std::lock_guard<std::mutex> lock(mQueueMutex);
+  if (mQueue.empty()) return false;
+  out = mQueue.front();
+  mQueue.pop();
+  return true;
+}
+
+std::vector<std::string> VeDirect::Split(const std::string& s, char delimiter, size_t limit)
+{
+  std::vector<std::string> result;
+  size_t start = 0;
+  size_t end = 0;
+  size_t count = 0;
+
+  while ((end = s.find(delimiter, start)) != std::string::npos)
+  {
+    if (count + 1 == limit)
+    {
+      result.push_back(s.substr(start));
+      return result;
+    }
+
+    result.push_back(s.substr(start, end - start));
+    start = end + 1;
+    count++;
+  }
+
+  result.push_back(s.substr(start));
+  return result;
+}

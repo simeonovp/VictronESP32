@@ -43,7 +43,7 @@
 
 // Activate Over The Air Update of firmware
 // rename to NO_USE_OTA if you do not have a webserver that can server new firmware
-//#define USE_OTA
+//#define USE_V_OTA
 
 #define USE_VICTRON_FORMAT
 
@@ -120,7 +120,7 @@ int mqtt_server_count = sizeof(mqtt_server) / sizeof(mqtt_server[0]);
 String MQTT_PREFIX = "N/c0619ab5b2ba/vedirect/0";
 String MQTT_PARAMETER = MQTT_PREFIX + "/Parameter"; 
 
-#ifdef USE_OTA
+#ifdef USE_V_OTA
 /*
    the binary file to look for
 */

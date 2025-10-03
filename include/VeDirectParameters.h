@@ -20,16 +20,16 @@ PubSubClient client(espClient);
 // Mappingstruktur
 struct VeDirectParameter
 {
-  String name;
-  String type;
+  std::string name;
+  std::string type;
   float scale;
-  String unit;
-  String mqttPath;  // Topic-Suffix
-  String lastValue;
+  std::string unit;
+  std::string mqttPath;  // Topic-Suffix
+  std::string lastValue;
 };
 
 // Ve.Direct → MQTT Topic Mapping
-std::map<String, VeDirectParameter> parameterMap =
+std::map<std::string, VeDirectParameter> parameterMap =
 {
   // Elektrical basic data
   {"V",    {"V",    "float", 0.001, "V",   "Dc/0/Voltage"}},
@@ -80,6 +80,9 @@ std::map<String, VeDirectParameter> parameterMap =
   // {"H23",  {"H23",  "int",    1.0, "",     "History/LowVoltageEvents"}},
   // {"HSDS", {"HSDS", "int",    1.0, "",     "HistoryStatus"}},
 
+  //???
+  //SS
+  //I21
 };
 
 /*
