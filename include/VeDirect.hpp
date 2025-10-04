@@ -4,13 +4,14 @@
 #include "VeDirectParameters.h"
 #include "VeDirectRegister.h"
 #include "VeDirectProt.h"
-#include <list>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <regex>
 #include <mutex>
 #include <queue>
+
+#define V_CACHE
 
 class VeDirect
 {
@@ -24,42 +25,40 @@ public:
   void ReadLog(const std::string& log);
 
 private:
-  struct Parameter
+  struct VRegRecord
   {
-    const VeDirectParameter* pDef;
-    String value;
+    uint32_t timestamp{ 0u };
+    std::string lastValue;
+    const VeDirectProt::VRegDefine* pDef { nullptr };
   };
-
-  struct Packet
-  {
-    std::list<Parameter> parameters;
-  };
-
+  using VQueueItem = std::pair<uint32_t, std::string>;
   static uint8_t HexCharsToByte(char hi, char lo);
   static void ReadTask(void* pInstance);
   static void ParseTask(void* pInstance);
 
   bool ProcessParameter();
-  void ProcessHexParameter(const std::string& s);
-  void ProcessStringParameter(const std::string& s);
+  void ProcessHexParameter(const std::string& s, uint32_t timestamp);
+  void ProcessStringParameter(const std::string& s, uint32_t timestamp);
   void Enqueue(const std::string& line);
-  bool Dequeue(std::string& out);
+  bool Dequeue(VQueueItem& ev);
   std::vector<std::string> Split(const std::string& s, char delimiter, size_t limit);
 
+  uint64_t mBootOffsetMs{ 0u };
   HookFunction mOnChange{ nullptr };
   HookFunction mOnData{ nullptr };
   TaskHandle_t mReadTask{ nullptr };
-  //sip---
-  // portMUX_TYPE mLinesMutex;
-  // LockFreeStringQueue mLines;
   TaskHandle_t mParseTask{ nullptr };
   volatile bool mStopRequested{ false };
   std::mutex mQueueMutex;  // ESP32 FreeRTOS: std::mutex oder portMUX_TYPE
-  std::queue<std::string> mQueue;
+  std::queue<VQueueItem> mQueue;
+  std::map<uint16_t, VRegRecord> mRegisters;
 };
 
 void VeDirect::Init()
 {
+  time_t now;
+  time(&now);
+  mBootOffsetMs = static_cast<int64_t>(now) * 1000 - millis();
   // handler, name, size, instance, priority, (out) handle
   xTaskCreate(VeDirect::ReadTask,  "ReadTask",  10000,  this, configMAX_PRIORITIES - 3,  &mReadTask);
   xTaskCreate(VeDirect::ParseTask,  "ParseTask",  10000,  this, 2, &mParseTask);
@@ -68,16 +67,16 @@ void VeDirect::Init()
 void VeDirect::Stop()
 {
   mStopRequested = true;
-  if (nullptr != mReadTask)
-  {
-    vTaskDelete(mReadTask);
-    mReadTask = nullptr;
-  }
-  if (nullptr != mParseTask)
-  {
-    vTaskDelete(mParseTask);
-    mParseTask = nullptr;
-  }
+  // if (nullptr != mReadTask)
+  // {
+  //   vTaskDelete(mReadTask);
+  //   mReadTask = nullptr;
+  // }
+  // if (nullptr != mParseTask)
+  // {
+  //   vTaskDelete(mParseTask);
+  //   mParseTask = nullptr;
+  // }
 }
 
 uint8_t VeDirect::HexCharsToByte(char hi, char lo)
@@ -162,16 +161,18 @@ void VeDirect::ParseTask(void* pInstance)
 
 bool VeDirect::ProcessParameter()
 {
-  std::string s;
-  auto result = Dequeue(s);
+  VQueueItem ev;
+  auto result = Dequeue(ev);
   if (!result) return false;
+  uint32_t timestamp = ev.first;
+  std::string& s = ev.second;
   if (!s.empty())
-  if (':' == s[0]) ProcessHexParameter(s);
-  else ProcessStringParameter(s);
+  if (':' == s[0]) ProcessHexParameter(s, timestamp);
+  else ProcessStringParameter(s, timestamp);
   return true;
 }
 
-void VeDirect::ProcessHexParameter(const std::string& s)
+void VeDirect::ProcessHexParameter(const std::string& s, uint32_t timestamp)
 {
   uint8_t cs = 0u;
   std::vector<uint8_t> bytes;
@@ -186,6 +187,7 @@ void VeDirect::ProcessHexParameter(const std::string& s)
   {
     log_w("! Hex checksum error, bytes:%u, calculated:%02X, (%s)",
       bytes.size(), cs, s.c_str());
+    return;
   }
   auto comm = "";
   switch (bytes[0])
@@ -196,23 +198,52 @@ void VeDirect::ProcessHexParameter(const std::string& s)
     if (5u > bytes.size())
     {
       log_w("Length error, received:%u, expected >= 5", bytes.size());
+      break;
     }
     else
     {
       auto reg = *reinterpret_cast<const uint16_t*>(&bytes[1]);
+      auto& rec = mRegisters[reg];
+
+#ifdef V_CACHE
+      if (0u == rec.timestamp)
+      {
+        rec.timestamp = timestamp;
+        rec.pDef = VeDirectProt::LookupRegDefs(reg);
+        log_i("Register reg:%04X: [%p] %s", reg, rec.pDef, (nullptr != rec.pDef) ? rec.pDef->name : "");
+      }
+      auto pDef = rec.pDef;
+#else // V_CACHE
       auto pDef = VeDirectProt::LookupRegDefs(reg);
+#endif // V_CACHE
+
+      std::string value;
       if (nullptr != pDef)
       {
-        log_i("[%s, reg:%04X] %s: (%s) %s", comm, reg,
-          pDef->name, to_string(pDef->type), ValueString(*pDef, &bytes[3u], (bytes.size() - 5u)));
+        value = std::string(ValueString(*pDef, &bytes[3u], (bytes.size() - 5u)).c_str());
+        log_i("[%s, reg:%04X] %s: (%s) %s", comm, reg, pDef->name, to_string(pDef->type), value.c_str());
       }
       else
       {
-        log_i("Command %s, reg:%04X, data len:%u", comm, reg, bytes.size() - 5u);
+        value = s.substr(6u, (bytes.size() << 1) - 10u);
+        log_i("Command %s, reg:%04X, data len:%u, %p", comm, reg, bytes.size() - 5u, pDef);
       }
-      //TODO
+
       // auto flags = bytes[bytes.size() - 2u];
       // auto cs = bytes[bytes.size() - 1u];
+
+      //TODO
+      std::string topic;
+
+      if (!topic.empty())
+      {
+        if (nullptr != mOnData) mOnData(topic, value);
+        if (value != rec.lastValue)
+        {
+          rec.lastValue = value;
+          if (nullptr != mOnChange) mOnChange(topic, value);
+        }
+      }
     }
     break;
   case static_cast<uint8_t>(VeDirectProt::Response::Ping):
@@ -231,7 +262,7 @@ How to Use HEX-mode
 */
 }
 
-void VeDirect::ProcessStringParameter(const std::string& s)
+void VeDirect::ProcessStringParameter(const std::string& s, uint32_t timestamp)
 {
   auto sp = Split(s, '\t', 2);
   if (sp.size() != 2)
@@ -291,14 +322,14 @@ void VeDirect::ReadLog(const std::string& log)
 void VeDirect::Enqueue(const std::string& line)
 {
   std::lock_guard<std::mutex> lock(mQueueMutex);
-  mQueue.push(line);  // sichere Kopie auf Heap
+  mQueue.push(VQueueItem(millis(), line));
 }
 
-bool VeDirect::Dequeue(std::string& out)
+bool VeDirect::Dequeue(VQueueItem& ev)
 {
   std::lock_guard<std::mutex> lock(mQueueMutex);
   if (mQueue.empty()) return false;
-  out = mQueue.front();
+  ev = mQueue.front();
   mQueue.pop();
   return true;
 }

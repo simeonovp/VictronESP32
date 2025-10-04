@@ -37,6 +37,7 @@ std::map<std::string, VeDirectParameter> parameterMap =
   {"P",    {"P",    "float", 1.0,   "W",   "Dc/0/Power"}},
   {"VPV",  {"VPV",  "float", 0.001, "V",   "Pv/0/Voltage"}},
   {"PPV",  {"PPV",  "float", 1.0,   "W",   "Pv/0/Power"}},
+  {"P\xEF\xBF\xBDV",  {"PPV",  "float", 1.0,   "W",   "Pv/0/Power"}}, // workaround, Unicode-Replacement Character (EF BF BD), Glitches beim Sampling oder Byte-Duplikatverlust.
   {"IL",   {"IL",   "float", 0.001, "A",   "Load/0/Current"}},
   {"LOAD", {"LOAD", "bool",  1.0,   "",    "Load/0/State"}},
 
@@ -83,6 +84,9 @@ std::map<std::string, VeDirectParameter> parameterMap =
   //???
   //SS
   //I21
+  //H27
+  //Hr0
+  //L20
 };
 
 /*
