@@ -1,5 +1,6 @@
 #pragma once
 #include <inttypes.h>
+#include <vector>
 
 namespace VeDirectProt
 {
@@ -241,166 +242,179 @@ struct VRegDefine
   Unit unit;      // human unit, empty if none
   const char* desc;      // short description
   const char* note;      // extra notes / source
+  const char* mqttTopic;  // eg. "ve/device/state"
+  const char* dbusPath;   // eg. "/Device/State"
 };
 
 static const VRegDefine RegDefs[] =
 {
   // Product information registers
-  { 0x0100, "Product Id", 0., RT::un32 }, // ve/product/id
-  { 0x0104, "Group Id", 0., RT::un8 }, // ve/product/groupid
-  { 0x010A, "Serial number", 0., RT::string }, // ve/product/serial
-  { 0x010B, "Model name", 0., RT::string }, // ve/product/model
-  { 0x0140, "Capabilities", 0., RT::un32 }, // ve/product/capabilities
+  { 0x0100, "Product Id",                     0.,     RT::un32,  Unit::none,  "",                                "", "ve/product/productid",         "/Product/ProductId" },
+  { 0x0104, "Group Id",                       0.,     RT::un8,   Unit::none,  "",                                "", "ve/product/groupid",           "/Product/GroupId" },
+  { 0x010A, "Serial number",                  0.,     RT::string,Unit::none,  "",                                "", "ve/product/serial",            "/Product/SerialNumber" },
+  { 0x010B, "Model name",                     0.,     RT::string,Unit::none,  "",                                "", "ve/product/model",             "/Product/ModelName" },
+  { 0x0140, "Capabilities",                   0.,     RT::un32,  Unit::none,  "",                                "", "ve/product/capabilities",      "/Product/Capabilities" },
+
   // Generic device control registers
-  { 0x0200, "Device mode", 0., RT::un8 }, // ve/device/mode
-  { 0x0201, "Device state", 0., RT::un8 }, // ve/device/state
-  { 0x0202, "Remote control used", 0., RT::un32 }, // ve/device/remotecontrol
-  { 0x0205, "Device off reason", 0., RT::un8 }, // ve/device/remotecontrol
-  { 0x0207, "Device off reason", 0., RT::un32 }, // ve/device/offreason2
+  { 0x0200, "Device mode",                    0.,     RT::un8,   Unit::none,  "",                                "", "ve/device/mode",               "/Device/Mode" },
+  { 0x0201, "Device state",                   0.,     RT::un8,   Unit::none,  "",                                "", "ve/device/state",              "/Device/State" },
+  { 0x0202, "Remote control used",            0.,     RT::un32,  Unit::none,  "",                                "", "ve/device/remotecontrolused",  "/Device/RemoteControlUsed" },
+  { 0x0205, "Device off reason",              0.,     RT::un8,   Unit::none,  "",                                "", "ve/device/offreason",          "/Device/OffReason" },
+  { 0x0207, "Device off reason",              0.,     RT::un32,  Unit::none,  "",                                "", "ve/device/offreason_extended", "/Device/OffReasonExtended" },
+
   // Battery settings registers
-  { 0xEDFF, "Batterysafe mode", 0., RT::un8, Unit::none, "0=off, 1=on" },
-  { 0xEDFE, "Adaptive mode", 0., RT::un8, Unit::none, "0=off, 1=on" },
-  { 0xEDFD, "Automatic equalisation mode", 0., RT::un8, Unit::none, "0=off, 1..250" },
-  { 0xEDFC, "Battery bulk time limit", 0.01, RT::un16, Unit::hours },
-  { 0xEDFB, "Battery absorption time limit", 0.01, RT::un16, Unit::hours },
-  { 0xEDF7, "Battery absorption voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDF6, "Battery float voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDF4, "Battery equalisation voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDF2, "Battery temp. compensation", 0.01, RT::sn16, Unit::mV_K },
-  { 0xEDF1, "Battery type", 1., RT::un8, Unit::none, "0xFF = user" },
-  { 0xEDF0, "Battery maximum current", 0.1, RT::un16, Unit::A },
-  { 0xEDEF, "Battery voltage", 1., RT::un8, Unit::V },
-  { 0xEDEC, "Battery temperature", 0.01, RT::un16, Unit::K, "0xFFFF=N/A" },
-  { 0xEDEA, "Battery voltage setting", 1., RT::un8, Unit::V },
-  { 0xEDE8, "BMS present", 0., RT::un8, Unit::none, "0=no, 1=yes" },
-  { 0xEDE7, "Tail current", 0.1, RT::un16 },
-  { 0xEDE6, "Low temperature charge current", 0.1, RT::un16, Unit::A, "0xFFFF=use max" },
-  { 0xEDE5, "Auto equalise stop on voltage", 0., RT::un8, Unit::none, "0=no, 1=yes" },
-  { 0xEDE4, "Equalisation current level", 1., RT::un8, Unit::perc, "(of 0xEDF0)"},
-  { 0xEDE3, "Equalisation duration", 0.01, RT::un16, Unit::hours },
-  { 0xED2E, "Re-bulk voltage offset", 0.01, RT::un16, Unit::V },
-  { 0xEDE0, "Battery low temperature level", 0.01, RT::sn16, Unit::C },
-  { 0xEDCA, "Voltage compensation", 0.01, RT::un16, Unit::V },
+  { 0xEDFF, "Batterysafe mode",               0.,     RT::un8,   Unit::none,  "0=off, 1=on",                     "", "ve/battery/safe_mode",         "/Battery/SafeMode" },
+  { 0xEDFE, "Adaptive mode",                  0.,     RT::un8,   Unit::none,  "0=off, 1=on",                     "", "ve/battery/adaptive_mode",     "/Battery/AdaptiveMode" },
+  { 0xEDFD, "Automatic equalisation mode",    0.,     RT::un8,   Unit::none,  "0=off, 1..250",                   "", "ve/battery/auto_equalisation", "/Battery/AutomaticEqualisationMode" },
+  { 0xEDFC, "Battery bulk time limit",        0.01,  RT::un16,  Unit::hours, "",                                "", "ve/battery/bulk_time_limit",   "/Battery/BulkTimeLimit" },
+  { 0xEDFB, "Battery absorption time limit",  0.01,  RT::un16,  Unit::hours, "",                                "", "ve/battery/absorption_time",   "/Battery/AbsorptionTimeLimit" },
+  { 0xEDF7, "Battery absorption voltage",     0.01,  RT::un16,  Unit::V,     "",                                "", "ve/battery/absorption_voltage","/Battery/AbsorptionVoltage" },
+  { 0xEDF6, "Battery float voltage",          0.01,  RT::un16,  Unit::V,     "",                                "", "ve/battery/float_voltage",     "/Battery/FloatVoltage" },
+  { 0xEDF4, "Battery equalisation voltage",   0.01,  RT::un16,  Unit::V,     "",                                "", "ve/battery/equalisation_voltage","/Battery/EqualisationVoltage" },
+  { 0xEDF2, "Battery temp. compensation",     0.01,  RT::sn16,  Unit::mV_K,  "",                                "", "ve/battery/temp_compensation", "/Battery/TempCompensation" },
+  { 0xEDF1, "Battery type",                    1.,    RT::un8,   Unit::none,  "0xFF = user",                     "", "ve/battery/type",              "/Battery/Type" },
+  { 0xEDF0, "Battery maximum current",        0.1,   RT::un16,  Unit::A,     "",                                "", "ve/battery/max_current",       "/Battery/MaximumCurrent" },
+  { 0xEDEF, "Battery voltage",                1.,    RT::un8,   Unit::V,     "",                                "", "ve/battery/voltage",           "/Battery/Voltage" },
+  { 0xEDEC, "Battery temperature",            0.01,  RT::un16,  Unit::K,     "0xFFFF=N/A",                      "", "ve/battery/temperature",       "/Battery/Temperature" },
+  { 0xEDEA, "Battery voltage setting",        1.,    RT::un8,   Unit::V,     "",                                "", "ve/battery/voltage_setting",   "/Battery/VoltageSetting" },
+  { 0xEDE8, "BMS present",                    0.,    RT::un8,   Unit::none,  "0=no, 1=yes",                     "", "ve/battery/bms_present",       "/Battery/BMSPresent" },
+  { 0xEDE7, "Tail current",                   0.1,   RT::un16,  Unit::none,  "",                                "", "ve/battery/tail_current",      "/Battery/TailCurrent" },
+  { 0xEDE6, "Low temperature charge current", 0.1,   RT::un16,  Unit::A,     "0xFFFF=use max",                  "", "ve/battery/lowtemp_charge_current", "/Battery/LowTemperatureChargeCurrent" },
+  { 0xEDE5, "Auto equalise stop on voltage",  0.,    RT::un8,   Unit::none,  "0=no, 1=yes",                     "", "ve/battery/auto_equalise_stop", "/Battery/AutoEqualiseStopOnVoltage" },
+  { 0xEDE4, "Equalisation current level",     1.,    RT::un8,   Unit::perc,  "(of 0xEDF0)",                     "", "ve/battery/equalisation_current", "/Battery/EqualisationCurrentLevel" },
+  { 0xEDE3, "Equalisation duration",          0.01,  RT::un16,  Unit::hours, "",                                "", "ve/battery/equalisation_duration","/Battery/EqualisationDuration" },
+  { 0xED2E, "Re-bulk voltage offset",         0.01,  RT::un16,  Unit::V,     "",                                "", "ve/battery/rebulk_voltage_offset", "/Battery/ReBulkVoltageOffset" },
+  { 0xEDE0, "Battery low temperature level",  0.01,  RT::sn16,  Unit::C,     "",                                "", "ve/battery/low_temp_level",     "/Battery/LowTemperatureLevel" },
+  { 0xEDCA, "Voltage compensation",           0.01,  RT::un16,  Unit::V,     "",                                "", "ve/battery/voltage_compensation","/Battery/VoltageCompensation" },
+
   // Charger data registers
-  { 0xEDEC, "Battery temperature", 0.01, RT::un16, Unit::K },
-  { 0xEDDF, "Charger maximum current", 0.1, RT::un16, Unit::A },
-  { 0xEDDD, "System yield", 0.01, RT::un32, Unit::kWh },
-  { 0xEDDC, "User yield (resettable)", 0.01, RT::un32, Unit::kWh },
-  { 0xEDDB, "Charger internal temperature", 0.01, RT::sn16, Unit::C },
-  { 0xEDDA, "Charger error code", 0., RT::un8 },
-  { 0xEDD7, "Charger current", 0.1, RT::un16, Unit::A },
-  { 0xEDD5, "Charger voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDD4, "Additional charger state info", 0., RT::un8 },
-  { 0xEDD3, "Yield today", 0.01, RT::un16, Unit::kWh }, //RT::un32 for version <= 1.12
-  { 0xEDD2, "Maximum power today", 1., RT::un16, Unit::W },
-  { 0xEDD1, "Yield yesterday", 0.01, RT::un16, Unit::kWh }, //RT::un32 for version <= 1.12
-  { 0xEDD0, "Maximum power yesterday", 1., RT::un16, Unit::W },
-  { 0xEDCE, "Voltage settings range", 0., RT::un16 },
-  { 0xEDCD, "History version", 0., RT::un8 },
-  { 0xEDCC, "Streetlight version", 0., RT::un8 },
-  { 0xEDC7, "Equalise current maximum", 1., RT::un8, Unit::perc },
-  { 0xEDC6, "Equalise voltage maximum", 0.01, RT::un16, Unit::V },
-  { 0x2211, "Adjustable voltage minimum", 0.01, RT::un16, Unit::V },
-  { 0x2212, "Adjustable voltage maximum", 0.01, RT::un16, Unit::V },
+  { 0xEDEC, "Battery temperature",           0.01,  RT::un16,  Unit::K,     "",                                "", "ve/charger/battery_temperature", "/Charger/BatteryTemperature" },
+  { 0xEDDF, "Charger maximum current",       0.1,   RT::un16,  Unit::A,     "",                                "", "ve/charger/max_current",       "/Charger/MaximumCurrent" },
+  { 0xEDDD, "System yield",                  0.01,  RT::un32,  Unit::kWh,  "",                                "", "ve/charger/system_yield",      "/Charger/SystemYield" },
+  { 0xEDDC, "User yield (resettable)",       0.01,  RT::un32,  Unit::kWh,  "",                                "", "ve/charger/user_yield",        "/Charger/UserYield" },
+  { 0xEDDB, "Charger internal temperature",  0.01,  RT::sn16,  Unit::C,    "",                                "", "ve/charger/internal_temp",     "/Charger/InternalTemperature" },
+  { 0xEDDA, "Charger error code",            0.,    RT::un8,   Unit::none, "",                                "", "ve/charger/error_code",        "/Charger/ErrorCode" },
+  { 0xEDD7, "Charger current",               0.1,   RT::un16,  Unit::A,    "",                                "", "ve/charger/current",           "/Charger/Current" },
+  { 0xEDD5, "Charger voltage",               0.01,  RT::un16,  Unit::V,    "",                                "", "ve/charger/voltage",           "/Charger/Voltage" },
+  { 0xEDD4, "Additional charger state info", 0.,    RT::un8,   Unit::none, "",                                "", "ve/charger/state_info",        "/Charger/AdditionalStateInfo" },
+  { 0xEDD3, "Yield today",                   0.01,  RT::un16,  Unit::kWh,  "RT::un32 for version <= 1.12",   "", "ve/charger/yield_today",       "/Charger/YieldToday" },
+  { 0xEDD2, "Maximum power today",           1.,    RT::un16,  Unit::W,    "",                                "", "ve/charger/max_power_today",   "/Charger/MaximumPowerToday" },
+  { 0xEDD1, "Yield yesterday",               0.01,  RT::un16,  Unit::kWh,  "RT::un32 for version <= 1.12",   "", "ve/charger/yield_yesterday",   "/Charger/YieldYesterday" },
+  { 0xEDD0, "Maximum power yesterday",       1.,    RT::un16,  Unit::W,    "",                                "", "ve/charger/max_power_yesterday","/Charger/MaximumPowerYesterday" },
+  { 0xEDCE, "Voltage settings range",        0.,    RT::un16,  Unit::none, "",                                "", "ve/charger/voltage_settings_range","/Charger/VoltageSettingsRange" },
+  { 0xEDCD, "History version",               0.,    RT::un8,   Unit::none, "",                                "", "ve/charger/history_version",   "/Charger/HistoryVersion" },
+  { 0xEDCC, "Streetlight version",           0.,    RT::un8,   Unit::none, "",                                "", "ve/charger/streetlight_version","/Charger/StreetlightVersion" },
+  { 0xEDC7, "Equalise current maximum",      1.,    RT::un8,   Unit::perc, "",                                "", "ve/charger/equalise_current_max","/Charger/EqualiseCurrentMax" },
+  { 0xEDC6, "Equalise voltage maximum",      0.01,  RT::un16,  Unit::V,    "",                                "", "ve/charger/equalise_voltage_max","/Charger/EqualiseVoltageMax" },
+  { 0x2211, "Adjustable voltage minimum",    0.01,  RT::un16,  Unit::V,    "",                                "", "ve/adjustable/voltage_min",    "/Adjustable/VoltageMinimum" },
+  { 0x2212, "Adjustable voltage maximum",    0.01,  RT::un16,  Unit::V,    "",                                "", "ve/adjustable/voltage_max",    "/Adjustable/VoltageMaximum" },
+
   // DC channel registers - MPPT RS models only
-  { 0xED8B, "Battery ripple voltage", 0.01, RT::un16, Unit::V },
-  { 0xED8D, "Battery voltage", 0.01, RT::sn16, Unit::V },
-  { 0xED8F, "Battery current", 0.1, RT::sn16, Unit::A },
+  { 0xED8B, "Battery ripple voltage",        0.01,  RT::un16,  Unit::V,    "",                                "", "ve/battery/ripple_voltage",    "/Battery/RippleVoltage" },
+  { 0xED8D, "Battery voltage",               0.01,  RT::sn16,  Unit::V,    "",                                "", "ve/battery/voltage_channel",   "/Battery/VoltageChannel" },
+  { 0xED8F, "Battery current",               0.1,   RT::sn16,  Unit::A,    "",                                "", "ve/battery/current_channel",   "/Battery/CurrentChannel" },
+
   // Solar panel data registers
-  { 0x0244, "Number of MPPT trackers", 0., RT::un8 },
-  { 0xEDBF, "Panel maximum current", 0.1, RT::un16, Unit::A },
-  { 0xEDBC, "Panel power", 0.01, RT::un32, Unit::W },
-  { 0xEDBB, "Panel voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDBD, "Panel current", 0.1, RT::un16, Unit::A },
-  { 0xEDB8, "Panel maximum voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDB3, "Tracker mode", 0., RT::un8 },
-  { 0xEDB2, "Panel starting voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDB1, "Panel input resistance", 1., RT::un32, Unit::Ohm },
+  { 0x0244, "Number of MPPT trackers",       0.,    RT::un8,   Unit::none, "",                                "", "ve/panel/mppt_trackers",       "/Panel/NumberOfMPPTTrackers" },
+  { 0xEDBF, "Panel maximum current",         0.1,   RT::un16,  Unit::A,    "",                                "", "ve/panel/max_current",         "/Panel/MaximumCurrent" },
+  { 0xEDBC, "Panel power",                   0.01,  RT::un32,  Unit::W,    "",                                "", "ve/panel/power",               "/Panel/Power" },
+  { 0xEDBB, "Panel voltage",                 0.01,  RT::un16,  Unit::V,    "",                                "", "ve/panel/voltage",             "/Panel/Voltage" },
+  { 0xEDBD, "Panel current",                 0.1,   RT::un16,  Unit::A,    "",                                "", "ve/panel/current",             "/Panel/Current" },
+  { 0xEDB8, "Panel maximum voltage",         0.01,  RT::un16,  Unit::V,    "",                                "", "ve/panel/max_voltage",         "/Panel/MaximumVoltage" },
+  { 0xEDB3, "Tracker mode",                  0.,    RT::un8,   Unit::none, "",                                "", "ve/panel/tracker_mode",        "/Panel/TrackerMode" },
+  { 0xEDB2, "Panel starting voltage",        0.01,  RT::un16,  Unit::V,    "",                                "", "ve/panel/starting_voltage",    "/Panel/StartingVoltage" },
+  { 0xEDB1, "Panel input resistance",        1.,    RT::un32,  Unit::Ohm,  "",                                "", "ve/panel/input_resistance",    "/Panel/InputResistance" },
   // Solar panel data individual MPPT trackers registers - MPPT RS models only
 // Panel power (see 0xEDBC) 0xECCC 0xECDC 0xECEC 0xECFC
 // Panel voltage (see 0xEDBB) 0xECCB 0xECDB 0xECEB 0xECFB
 // Panel current (see 0xEDBD) 0xECCD 0xECDD 0xECED 0xECFD
 // Tracker mode (see 0xEDB3) 0xECC3 0xECD3 0xECE3 0xECF3
   // Load output data/settings registers
-  { 0xEDAD, "Load current", 0.1, RT::un16, Unit::A },
-  { 0xEDAC, "Load offset voltage", 0.01, RT::un8, Unit::V },
-  { 0xEDAB, "Load output control", 0., RT::un8 },
-  { 0xEDA9, "Load output voltage", 0.01, RT::un16, Unit::V },
-  { 0xEDA8, "Load output state", 0., RT::un8 },
-  { 0xED9D, "Load switch high level", 0.01, RT::un16, Unit::V },
-  { 0xED9C, "Load switch low level", 0.01, RT::un16, Unit::V },
-  { 0xED91, "Load output off reason", 0., RT::un8 },
-  { 0xED90, "Load AES timer", 1., RT::un16, Unit::min },
+  { 0xEDAD, "Load current",                  0.1,   RT::un16,  Unit::A,    "",                                "", "ve/load/current",              "/Load/Current" },
+  { 0xEDAC, "Load offset voltage",           0.01,  RT::un8,   Unit::V,    "",                                "", "ve/load/offset_voltage",       "/Load/OffsetVoltage" },
+  { 0xEDAB, "Load output control",           0.,    RT::un8,   Unit::none, "",                                "", "ve/load/output_control",       "/Load/OutputControl" },
+  { 0xEDA9, "Load output voltage",           0.01,  RT::un16,  Unit::V,    "",                                "", "ve/load/output_voltage",       "/Load/OutputVoltage" },
+  { 0xEDA8, "Load output state",             0.,    RT::un8,   Unit::none, "",                                "", "ve/load/output_state",         "/Load/OutputState" },
+  { 0xED9D, "Load switch high level",        0.01,  RT::un16,  Unit::V,    "",                                "", "ve/load/switch_high_level",    "/Load/SwitchHighLevel" },
+  { 0xED9C, "Load switch low level",         0.01,  RT::un16,  Unit::V,    "",                                "", "ve/load/switch_low_level",     "/Load/SwitchLowLevel" },
+  { 0xED91, "Load output off reason",        0.,    RT::un8,   Unit::none, "",                                "", "ve/load/off_reason",           "/Load/OffReason" },
+  { 0xED90, "Load AES timer",                1.,    RT::un16,  Unit::min,  "",                                "", "ve/load/aes_timer",            "/Load/AEStimer" },
+
   // Relay settings registers
-  { 0xEDD9, "Relay operation mode", 0., RT::un8 },
-  { 0x0350, "Relay battery low voltage set", 0.01, RT::un16, Unit::V },
-  { 0x0351, "Relay battery low voltage clear", 0.01, RT::un16, Unit::V },
-  { 0x0352, "Relay battery high voltage set", 0.01, RT::un16, Unit::V },
-  { 0x0353, "Relay battery high voltage clear", 0.01, RT::un16, Unit::V },
-  { 0xEDBA, "Relay panel high voltage set", 0.01, RT::un16, Unit::V },
-  { 0xEDB9, "Relay panel high voltage clear", 0.01, RT::un16, Unit::V },
-  { 0x100A, "Relay minimum enabled time", 1., RT::un16, Unit::min },
+  { 0xEDD9, "Relay operation mode",          0.,    RT::un8,   Unit::none, "",                                "", "ve/relay/operation_mode",      "/Relay/OperationMode" },
+  { 0x0350, "Relay battery low voltage set", 0.01,  RT::un16,  Unit::V,    "",                                "", "ve/relay/batt_low_set",        "/Relay/BatteryLowVoltageSet" },
+  { 0x0351, "Relay battery low voltage clear",0.01,  RT::un16,  Unit::V,    "",                                "", "ve/relay/batt_low_clear",      "/Relay/BatteryLowVoltageClear" },
+  { 0x0352, "Relay battery high voltage set",0.01,  RT::un16,  Unit::V,    "",                                "", "ve/relay/batt_high_set",       "/Relay/BatteryHighVoltageSet" },
+  { 0x0353, "Relay battery high voltage clear",0.01, RT::un16,  Unit::V,    "",                                "", "ve/relay/batt_high_clear",     "/Relay/BatteryHighVoltageClear" },
+  { 0xEDBA, "Relay panel high voltage set",  0.01,  RT::un16,  Unit::V,    "",                                "", "ve/relay/panel_high_set",      "/Relay/PanelHighVoltageSet" },
+  { 0xEDB9, "Relay panel high voltage clear",0.01,  RT::un16,  Unit::V,    "",                                "", "ve/relay/panel_high_clear",    "/Relay/PanelHighVoltageClear" },
+  { 0x100A, "Relay minimum enabled time",    1.,    RT::un16,  Unit::min,  "",                                "", "ve/relay/min_enabled_time",    "/Relay/MinimumEnabledTime" },
+
   // Lighting controller timer
-  { 0xEDA0, "Timer event 0", 0., RT::un32 },
-  { 0xEDA1, "Timer event 1", 0., RT::un32 },
-  { 0xEDA2, "Timer event 2", 0., RT::un32 },
-  { 0xEDA3, "Timer event 3", 0., RT::un32 },
-  { 0xEDA4, "Timer event 4", 0., RT::un32 },
-  { 0xEDA5, "Timer event 5", 0., RT::un32 },
-  { 0xEDA7, "Mid-point shift", 1., RT::sn16, Unit::min },
-  { 0xED9B, "Gradual dim speed", 1., RT::un8, Unit::sec },
-  { 0xED9A, "Panel voltage night", 0.01, RT::un16, Unit::V },
-  { 0xED99, "Panel voltage day", 0.01, RT::un16, Unit::V },
-  { 0xED96, "Sunset delay", 1., RT::un16, Unit::min },
-  { 0xED97, "Sunrise delay", 1., RT::un16, Unit::min },
-  { 0xED90, "AES Timer", 1., RT::un16, Unit::min },
-  { 0x2030, "Solar activity", 0., RT::un8, Unit::none, "0=dark, 1=light" },
-  { 0x2031, "Time-of-day", 1., RT::un16, Unit::min, "0=mid-night" },
+  { 0xEDA0, "Timer event 0",                 0.,    RT::un32,  Unit::none, "",                                "", "ve/timer/event0",             "/Timer/Event0" },
+  { 0xEDA1, "Timer event 1",                 0.,    RT::un32,  Unit::none, "",                                "", "ve/timer/event1",             "/Timer/Event1" },
+  { 0xEDA2, "Timer event 2",                 0.,    RT::un32,  Unit::none, "",                                "", "ve/timer/event2",             "/Timer/Event2" },
+  { 0xEDA3, "Timer event 3",                 0.,    RT::un32,  Unit::none, "",                                "", "ve/timer/event3",             "/Timer/Event3" },
+  { 0xEDA4, "Timer event 4",                 0.,    RT::un32,  Unit::none, "",                                "", "ve/timer/event4",             "/Timer/Event4" },
+  { 0xEDA5, "Timer event 5",                 0.,    RT::un32,  Unit::none, "",                                "", "ve/timer/event5",             "/Timer/Event5" },
+  { 0xEDA7, "Mid-point shift",               1.,    RT::sn16,  Unit::min,  "",                                "", "ve/timer/midpoint_shift",     "/Timer/MidPointShift" },
+  { 0xED9B, "Gradual dim speed",             1.,    RT::un8,   Unit::sec,  "",                                "", "ve/timer/gradual_dim_speed",  "/Timer/GradualDimSpeed" },
+  { 0xED9A, "Panel voltage night",           0.01,  RT::un16,  Unit::V,    "",                                "", "ve/panel/voltage_night",      "/Panel/VoltageNight" },
+  { 0xED99, "Panel voltage day",             0.01,  RT::un16,  Unit::V,    "",                                "", "ve/panel/voltage_day",        "/Panel/VoltageDay" },
+  { 0xED96, "Sunset delay",                  1.,    RT::un16,  Unit::min,  "",                                "", "ve/panel/sunset_delay",       "/Panel/SunsetDelay" },
+  { 0xED97, "Sunrise delay",                 1.,    RT::un16,  Unit::min,  "",                                "", "ve/panel/sunrise_delay",      "/Panel/SunriseDelay" },
+  { 0xED90, "AES Timer",                     1.,    RT::un16,  Unit::min,  "",                                "", "ve/load/aes_timer_dup",       "/Load/AESTimer" },
+  { 0x2030, "Solar activity",                0.,    RT::un8,   Unit::none, "0=dark, 1=light",                "", "ve/solar/activity",          "/Solar/Activity" },
+  { 0x2031, "Time-of-day",                   1.,    RT::un16,  Unit::min,  "0=mid-night",                    "", "ve/solar/time_of_day",        "/Solar/TimeOfDay" },
+
   // VE.Direct port functions
-  { 0xED9E, "TX Port operation mode", 0., RT::un8 },
-  { 0xED98, "RX Port operation mode", 0., RT::un8 },
+  { 0xED9E, "TX Port operation mode",        0.,    RT::un8,   Unit::none, "",                                "", "ve/vedirect/tx_port_mode",   "/VEDirect/TXPortOperationMode" },
+  { 0xED98, "RX Port operation mode",        0.,    RT::un8,   Unit::none, "",                                "", "ve/vedirect/rx_port_mode",   "/VEDirect/RXPortOperationMode" },
+
   // Restore factory defaults
-  { 0x0004, "Restore default" },
+  { 0x0004, "Restore default",               0.,    RT::none,  Unit::none, "",                                "", "ve/device/restore_default",  "/Device/RestoreDefault" },
+
   // History data
-  { 0x1030, "Clear history" },
+  { 0x1030, "Clear history",                 0.,    RT::none,  Unit::none, "",                                "", "ve/history/clear",           "/History/Clear" },
 // 0x104F Total history
 // 0x1050 ... Daily history (0x1050=today, 0x1051=yesterday, ...) (*1)
-  { 0x1050, "Daily history today", 0., RT::raw, Unit::_hdr },
+  { 0x1050, "Daily history today",           0.,    RT::raw,   Unit::_hdr,  "",                                "", "ve/history/daily_today",     "/History/DailyToday" },
 // 0x106E
 // 0x10A0 ... Daily MPPT history (0x10A0=today, 0x10A1=yesterday, ...) (*1, *2)
 // 0x10BE
   // Pluggable display settings
-  { 0x0400, "Display backlight mode", 0., RT::un8, Unit::none, "(0 = keypress, 1 = on, 2 = auto)" },
-  { 0x0401, "Display backlight intensity", 0., RT::un8, Unit::none, "(0 = always off, 1 = on)" },
-  { 0x0402, "Display scroll text speed", 0., RT::un8, Unit::none, "(1 = slow, 5 = fast)" },
-  { 0x0403, "Display setup lock", 0., RT::un8, Unit::none, "(0 = unlocked, 1 = locked)" },
-  { 0x0404, "Display temperature unit", 0., RT::un8, Unit::none, "(0 = Celsius, 1 = Fahrenheit)" },
+  { 0x0400, "Display backlight mode",        0.,    RT::un8,   Unit::none, "(0 = keypress, 1 = on, 2 = auto)", "", "ve/display/backlight_mode",   "/Display/BacklightMode" },
+  { 0x0401, "Display backlight intensity",   0.,    RT::un8,   Unit::none, "(0 = always off, 1 = on)",       "", "ve/display/backlight_intensity","/Display/BacklightIntensity" },
+  { 0x0402, "Display scroll text speed",     0.,    RT::un8,   Unit::none, "(1 = slow, 5 = fast)",            "", "ve/display/scroll_speed",     "/Display/ScrollTextSpeed" },
+  { 0x0403, "Display setup lock",            0.,    RT::un8,   Unit::none, "(0 = unlocked, 1 = locked)",      "", "ve/display/setup_lock",       "/Display/SetupLock" },
+  { 0x0404, "Display temperature unit",      0.,    RT::un8,   Unit::none, "(0 = Celsius, 1 = Fahrenheit)",   "", "ve/display/temp_unit",        "/Display/TemperatureUnit" },
   // Internal display settings
-  { 0x0401, "Display backlight intensity", 0., RT::un8, Unit::none, "(0 = always off, 1 = on)" },
-  { 0x0402, "Display scroll text speed", 0., RT::un8, Unit::none, "(1 = slow, 5 = fast)" },
-  { 0x0404, "Display temperature unit", 0., RT::un8, Unit::none, "(0 = Celsius, 1 = Fahrenheit)" },
-  { 0x0406, "Display contrast", 0., RT::un8 },
-  { 0x0408, "Display backlight mode", 0., RT::un8, Unit::none, "(0 = off, 1 = on, 2 = auto)" },
+  { 0x0406, "Display contrast",              0.,    RT::un8,   Unit::none, "",                                "", "ve/display/contrast",         "/Display/Contrast" },
+  { 0x0408, "Display backlight mode",        0.,    RT::un8,   Unit::none, "(0 = off, 1 = on, 2 = auto)",     "", "ve/display/backlight_mode_dup","/Display/BacklightModeAlt" },
+
   // Remote control registers
-  { 0x2000, "Charge algorithm version", 0., RT::un8 },
-  { 0x2001, "Charge voltage set-point", 0.01, RT::un16, Unit::V },
-  { 0x2002, "Battery voltage sense", 0.01, RT::un16, Unit::V },
-  { 0x2003, "Battery temperature sense", 0.01, RT::sn16, Unit::C },
-  { 0x2004, "Remote command", 0., RT::un8 },
-  { 0x2007, "Charge state elapsed time", 1., RT::un32, Unit::ms },
-  { 0x2008, "Absorption time", 0.01, RT::un16, Unit::hours },
-  { 0x2009, "Error code", 0., RT::un8 },
-  { 0x200A, "Battery charge current", 0.001, RT::sn32, Unit::A },
-  { 0x200B, "Battery idle voltage", 0.01, RT::un16, Unit::V },
-  { 0x200C, "Device state", 0., RT::un8 },
-  { 0x200D, "Network info", 0., RT::un8 },
-  { 0x200E, "Network mode", 0., RT::un8 },
-  { 0x200F, "Network status register", 0., RT::un8 },
-  { 0x2013, "Total charge current", 0.001, RT::sn32, Unit::A },
-  { 0x2014, "Charge current percentage", 1., RT::un8, Unit::perc },
-  { 0x2015, "Charge current limit", 0.1, RT::un16, Unit::A },
-  { 0x2018, "Manual equalisation pending", 0., RT::un8 },
-  { 0x2027, "Total DC input power", 0.01, RT::un32, Unit::W },
+  { 0x2000, "Charge algorithm version",      0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/charge_algo_version","/Remote/ChargeAlgorithmVersion" },
+  { 0x2001, "Charge voltage set-point",      0.01,  RT::un16,  Unit::V,    "",                                "", "ve/remote/charge_voltage_setpoint", "/Remote/ChargeVoltageSetpoint" },
+  { 0x2002, "Battery voltage sense",         0.01,  RT::un16,  Unit::V,    "",                                "", "ve/remote/battery_voltage_sense", "/Remote/BatteryVoltageSense" },
+  { 0x2003, "Battery temperature sense",     0.01,  RT::sn16,  Unit::C,    "",                                "", "ve/remote/battery_temp_sense", "/Remote/BatteryTemperatureSense" },
+  { 0x2004, "Remote command",                 0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/command",           "/Remote/Command" },
+  { 0x2007, "Charge state elapsed time",     1.,    RT::un32,  Unit::ms,   "",                                "", "ve/remote/charge_state_elapsed_ms", "/Remote/ChargeStateElapsedTime" },
+  { 0x2008, "Absorption time",               0.01,  RT::un16,  Unit::hours, "",                               "", "ve/remote/absorption_time",   "/Remote/AbsorptionTime" },
+  { 0x2009, "Error code",                    0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/error_code",        "/Remote/ErrorCode" },
+  { 0x200A, "Battery charge current",        0.001, RT::sn32,  Unit::A,    "",                                "", "ve/remote/charge_current",    "/Remote/BatteryChargeCurrent" },
+  { 0x200B, "Battery idle voltage",          0.01,  RT::un16,  Unit::V,    "",                                "", "ve/remote/idle_voltage",      "/Remote/BatteryIdleVoltage" },
+  { 0x200C, "Device state",                  0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/device_state",      "/Remote/DeviceState" },
+  { 0x200D, "Network info",                  0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/network_info",      "/Remote/NetworkInfo" },
+  { 0x200E, "Network mode",                  0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/network_mode",      "/Remote/NetworkMode" },
+  { 0x200F, "Network status register",       0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/network_status",    "/Remote/NetworkStatusRegister" },
+  { 0x2013, "Total charge current",          0.001, RT::sn32,  Unit::A,    "",                                "", "ve/remote/total_charge_current","/Remote/TotalChargeCurrent" },
+  { 0x2014, "Charge current percentage",     1.,    RT::un8,   Unit::perc, "",                                "", "ve/remote/charge_current_pct", "/Remote/ChargeCurrentPercentage" },
+  { 0x2015, "Charge current limit",          0.1,   RT::un16,  Unit::A,    "",                                "", "ve/remote/charge_current_limit","/Remote/ChargeCurrentLimit" },
+  { 0x2018, "Manual equalisation pending",   0.,    RT::un8,   Unit::none, "",                                "", "ve/remote/manual_equalisation_pending","/Remote/ManualEqualisationPending" },
+  { 0x2027, "Total DC input power",          0.01,  RT::un32,  Unit::W,    "",                                "", "ve/remote/total_dc_input_power","/Remote/TotalDCInputPower" },
+
+  // terminator placeholder (undefined)
+  { 0xFFFF, "Undefined",                     0.,    RT::un8,   Unit::none, "Undefined placeholder",           "", "ve/misc/undefined",           "/Misc/Undefined" },
 };
 
 /*
@@ -428,28 +442,47 @@ struct __attribute__((packed)) HistoryDayRecord
   uint16_t DaySeqNr; // [32] Day sequence number (*3) - un16 -
 };
 
-String HistoryDayRecordString(const uint8_t* pData, size_t len)
+std::string HistoryDayRecordString(const uint8_t* pData, size_t len)
 {
   static_assert(34u == sizeof(HistoryDayRecord), "Invalid HistoryDayRecord");
   if (sizeof(HistoryDayRecord) > len) return "";
-  auto& rec = *reinterpret_cast<const HistoryDayRecord*>(pData);
-  String s;
-  s += "\n\tYield: "; s += rec.Yield;
-  s += "\n\tConsumed: "; s += rec.Consumed;
-  s += "\n\tUBatMax: "; s += rec.UBatMax;
-  s += "\n\tUBatMin: "; s += rec.UBatMin;
-  s += "\n\tErrors: "; s += rec.ErrorDB;
-  if (0u != rec.Error0) s += ", "; s += rec.Error0;
-  if (0u != rec.Error1) s += ", "; s += rec.Error1;
-  if (0u != rec.Error2) s += ", "; s += rec.Error2;
-  if (0u != rec.Error3) s += ", "; s += rec.Error3;
-  s += "\n\tTimeBulk: "; s += rec.TimeBulk;
-  s += "\n\tTimeAbs: "; s += rec.TimeAbs;
-  s += "\n\tTimeFloat: "; s += rec.TimeFloat;
-  s += "\n\tPowerMax: "; s += rec.PowerMax;
-  s += "\n\tBattCurrMax: "; s += rec.BattCurrMax;
-  s += "\n\tUPanelMax: "; s += rec.UPanelMax;
-  s += "\n\tDaySeqNr: "; s += rec.DaySeqNr;
+
+  const auto& rec = *reinterpret_cast<const HistoryDayRecord*>(pData);
+  std::string s;
+  s.reserve(256); // grob vorreservieren
+
+  s += "{\n";
+  s += "  \"Yield\": "; s += std::to_string(rec.Yield); s += ",\n";
+  s += "  \"Consumed\": "; s += std::to_string(rec.Consumed); s += ",\n";
+  s += "  \"UBatMax\": "; s += std::to_string(rec.UBatMax); s += ",\n";
+  s += "  \"UBatMin\": "; s += std::to_string(rec.UBatMin); s += ",\n";
+
+  // Fehlerarray
+  s += "  \"Errors\": [";
+  bool first = true;
+  auto appendError = [&](uint8_t err){
+    if(err != 0){
+      if(!first) s += ",";
+      s += std::to_string(err);
+      first = false;
+    }
+  };
+  appendError(rec.ErrorDB);
+  appendError(rec.Error0);
+  appendError(rec.Error1);
+  appendError(rec.Error2);
+  appendError(rec.Error3);
+  s += "],\n";
+
+  s += "  \"TimeBulk\": "; s += std::to_string(rec.TimeBulk); s += ",\n";
+  s += "  \"TimeAbs\": "; s += std::to_string(rec.TimeAbs); s += ",\n";
+  s += "  \"TimeFloat\": "; s += std::to_string(rec.TimeFloat); s += ",\n";
+  s += "  \"PowerMax\": "; s += std::to_string(rec.PowerMax); s += ",\n";
+  s += "  \"BattCurrMax\": "; s += std::to_string(rec.BattCurrMax); s += ",\n";
+  s += "  \"UPanelMax\": "; s += std::to_string(rec.UPanelMax); s += ",\n";
+  s += "  \"DaySeqNr\": "; s += std::to_string(rec.DaySeqNr); s += "\n";
+  s += "}";
+
   return s;
 }
 
@@ -497,20 +530,20 @@ const VRegDefine* LookupRegDefs(uint16_t id)
   return nullptr;
 }
 
-String ValueString(const VRegDefine& def, const uint8_t* pData, size_t len)
+std::string ValueString(const VRegDefine& def, const uint8_t* pData, size_t len)
 {
   auto& regType = def.type;
   switch (regType)
   {
-  case RT::un8: return (len < 1) ? "" : String(pData[0]);
-  case RT::un16: return (len < 2) ? "" : String(pData[0] | (pData[1] << 8));
-  case RT::un32: return (len < 4) ? "" : String(pData[0] | (pData[1] << 8) | (pData[2] << 16) | (pData[3] << 24));
-  case RT::sn8: return (len < 1) ? "" : String(static_cast<int8_t>(pData[0]));
-  case RT::sn16: return (len < 2) ? "" : String(static_cast<int16_t>(pData[0] | (pData[1] << 8)));
+  case RT::un8: return (len < 1) ? "" : std::to_string(pData[0]);
+  case RT::un16: return (len < 2) ? "" : std::to_string(pData[0] | (pData[1] << 8));
+  case RT::un32: return (len < 4) ? "" : std::to_string(pData[0] | (pData[1] << 8) | (pData[2] << 16) | (pData[3] << 24));
+  case RT::sn8: return (len < 1) ? "" : std::to_string(static_cast<int8_t>(pData[0]));
+  case RT::sn16: return (len < 2) ? "" : std::to_string(static_cast<int16_t>(pData[0] | (pData[1] << 8)));
   case RT::sn32: return (len < 4) ? ""
-      : String(static_cast<int32_t>(pData[0] | (pData[1] << 8) | (pData[2] << 16) | (pData[3] << 24)));
+      : std::to_string(static_cast<int32_t>(pData[0] | (pData[1] << 8) | (pData[2] << 16) | (pData[3] << 24)));
   case RT::string:
-    return String(reinterpret_cast<const char*>(pData), len);
+    return std::string(reinterpret_cast<const char*>(pData), len);
   case RT::raw:
     {
       switch (def.unit)

@@ -11,8 +11,6 @@
 #include <mutex>
 #include <queue>
 
-#define V_CACHE
-
 class VeDirect
 {
 public:
@@ -205,22 +203,20 @@ void VeDirect::ProcessHexParameter(const std::string& s, uint32_t timestamp)
       auto reg = *reinterpret_cast<const uint16_t*>(&bytes[1]);
       auto& rec = mRegisters[reg];
 
-#ifdef V_CACHE
       if (0u == rec.timestamp)
       {
         rec.timestamp = timestamp;
         rec.pDef = VeDirectProt::LookupRegDefs(reg);
-        log_i("Register reg:%04X: [%p] %s", reg, rec.pDef, (nullptr != rec.pDef) ? rec.pDef->name : "");
+        log_d("Register reg:%04X: [%p] %s", reg, rec.pDef, (nullptr != rec.pDef) ? rec.pDef->name : "");
       }
       auto pDef = rec.pDef;
-#else // V_CACHE
-      auto pDef = VeDirectProt::LookupRegDefs(reg);
-#endif // V_CACHE
 
       std::string value;
+      std::string topic;
       if (nullptr != pDef)
       {
-        value = std::string(ValueString(*pDef, &bytes[3u], (bytes.size() - 5u)).c_str());
+        value = ValueString(*pDef, &bytes[3u], (bytes.size() - 5u));
+        if (nullptr != pDef->mqttTopic) topic = pDef->mqttTopic;
         log_i("[%s, reg:%04X] %s: (%s) %s", comm, reg, pDef->name, to_string(pDef->type), value.c_str());
       }
       else
@@ -233,7 +229,6 @@ void VeDirect::ProcessHexParameter(const std::string& s, uint32_t timestamp)
       // auto cs = bytes[bytes.size() - 1u];
 
       //TODO
-      std::string topic;
 
       if (!topic.empty())
       {
@@ -241,6 +236,7 @@ void VeDirect::ProcessHexParameter(const std::string& s, uint32_t timestamp)
         if (value != rec.lastValue)
         {
           rec.lastValue = value;
+          log_i("mOnChange(%s, %s)", topic.c_str(), value.c_str());
           if (nullptr != mOnChange) mOnChange(topic, value);
         }
       }
