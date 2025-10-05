@@ -1,21 +1,7 @@
-#ifndef VEDIRECTPARAMS_H
-#define VEDIRECTPARAMS_H
+#pragma once
 
-#ifdef VEDIRECT_DEMO
-#include <WiFi.h>
-#include <PubSubClient.h>
-#endif // VEDIRECT_DEMO
 #include <WString.h>
 #include <map>
-
-#ifdef VEDIRECT_DEMO
-const char* ssid = "DEIN_WIFI";
-const char* password = "DEIN_PASS";
-const char* mqtt_server = "192.168.193.231"; // Venus IP
-
-WiFiClient espClient;
-PubSubClient client(espClient);
-#endif // VEDIRECT_DEMO
 
 // Mappingstruktur
 struct VeDirectParameter
@@ -125,82 +111,3 @@ Wert	Bedeutung (englisch)	Bedeutung (deutsch)
 4	Ext. control	Externe Steuerung
 
 */
-
-#ifdef VEDIRECT_DEMO
-// ⬇ MQTT verbinden
-void reconnect()
-{
-  while (!client.connected())
-  {
-    if (client.connect("vedirect-bridge"))
-    {
-      Serial.println("MQTT verbunden");
-    }
-    else
-    {
-      delay(2000);
-    }
-  }
-}
-
-// ⬇ Wert parsen und MQTT publizieren
-void processVedirectValue(String key, String rawValue)
-{
-  if (!parameterMap.count(key))
-  {
-    Serial.println("Unbekannter Parameter: " + key);
-    return;
-  }
-
-  VeDirectParameter param = parameterMap[key];
-  String topic = "N/<portalId>/battery/vedirect/" + param.mqttPath;
-  String payload;
-
-  if (param.type == "float")
-  {
-    float val = rawValue.toFloat() * param.scale;
-    payload = "{\"value\":" + String(val, 2) + "}";
-  }
-  else if (param.type == "int")
-  {
-    int val = rawValue.toInt();
-    payload = "{\"value\":" + String(val) + "}";
-  }
-  else if (param.type == "bool")
-  {
-    bool val = (rawValue == "1");
-    payload = "{\"value\":" + String(val ? "true" : "false") + "}";
-  }
-  else if (param.type == "string")
-  {
-    payload = "{\"value\":\"" + rawValue + "\"}";
-  }
-
-  Serial.printf("Publish: %s → %s\n", topic.c_str(), payload.c_str());
-  client.publish(topic.c_str(), payload.c_str());
-}
-
-void setup()
-{
-  Serial.begin(115200);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) delay(500);
-  client.setServer(mqtt_server, 1883);
-
-  reconnect();
-
-  // Beispielaufrufe
-  processVedirectValue("V", "13050");    // 13.05 V
-  processVedirectValue("SOC", "815");    // 81.5%
-  processVedirectValue("Relay", "1");    // true
-}
-
-void loop()
-{
-  if (!client.connected()) reconnect();
-  client.loop();
-}
-#endif // VEDIRECT_DEMO
-
-#endif // VEDIRECTPARAMS_H

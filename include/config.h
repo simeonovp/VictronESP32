@@ -1,40 +1,5 @@
-/*
-   VE.Direct config file.
-   Cconfiguration parameters for
-   VE.Direct2MQTT gateway
+#pragma once
 
-   GITHUB Link
-
-   MIT License
-
-   Copyright (c) 2020 Ralf Lehmann
-
-
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
-
-   The above copyright notice and this permission notice shall be included in all
-   copies or substantial portions of the Software.
-
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-   SOFTWARE.
-*/
-
-#ifndef CONFIG_H
-#define CONFIG_H
-/*
-   Defines that activate features like OTA (over the air update)
-   or Acitve/Passive mode
-*/
 // use SSL to connect to MQTT Server or OTA Server
 // it is strongly recommended to use SSL if you send any password over the net
 // connectiong to MQTT might need a password; the same for OTA
@@ -42,66 +7,70 @@
 #define NO_USE_SSL
 
 // Activate Over The Air Update of firmware
-// rename to NO_USE_OTA if you do not have a webserver that can server new firmware
 //#define USE_V_OTA
 
 #define USE_VICTRON_FORMAT
 
 #ifdef USE_SSL
 /*
-   SSL certificate
-   This is good for all let's encrypt certificates for MQTT or OTA servers
-*/
-/*
+  SSL certificate
+  This is good for all let's encrypt certificates for MQTT or OTA servers
   This is lets-encrypt-x3-cross-signed.pem
 */
 const char* rootCACertificate = \
-                                "-----BEGIN CERTIFICATE-----\n" \
-                                "MIIEkjCCA3qgAwIBAgIQCgFBQgAAAVOFc2oLheynCDANBgkqhkiG9w0BAQsFADA/\n" \
-                                "MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT\n" \
-                                "DkRTVCBSb290IENBIFgzMB4XDTE2MDMxNzE2NDA0NloXDTIxMDMxNzE2NDA0Nlow\n" \
-                                "SjELMAkGA1UEBhMCVVMxFjAUBgNVBAoTDUxldCdzIEVuY3J5cHQxIzAhBgNVBAMT\n" \
-                                "GkxldCdzIEVuY3J5cHQgQXV0aG9yaXR5IFgzMIIBIjANBgkqhkiG9w0BAQEFAAOC\n" \
-                                "AQ8AMIIBCgKCAQEAnNMM8FrlLke3cl03g7NoYzDq1zUmGSXhvb418XCSL7e4S0EF\n" \
-                                "q6meNQhY7LEqxGiHC6PjdeTm86dicbp5gWAf15Gan/PQeGdxyGkOlZHP/uaZ6WA8\n" \
-                                "SMx+yk13EiSdRxta67nsHjcAHJyse6cF6s5K671B5TaYucv9bTyWaN8jKkKQDIZ0\n" \
-                                "Z8h/pZq4UmEUEz9l6YKHy9v6Dlb2honzhT+Xhq+w3Brvaw2VFn3EK6BlspkENnWA\n" \
-                                "a6xK8xuQSXgvopZPKiAlKQTGdMDQMc2PMTiVFrqoM7hD8bEfwzB/onkxEz0tNvjj\n" \
-                                "/PIzark5McWvxI0NHWQWM6r6hCm21AvA2H3DkwIDAQABo4IBfTCCAXkwEgYDVR0T\n" \
-                                "AQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAYYwfwYIKwYBBQUHAQEEczBxMDIG\n" \
-                                "CCsGAQUFBzABhiZodHRwOi8vaXNyZy50cnVzdGlkLm9jc3AuaWRlbnRydXN0LmNv\n" \
-                                "bTA7BggrBgEFBQcwAoYvaHR0cDovL2FwcHMuaWRlbnRydXN0LmNvbS9yb290cy9k\n" \
-                                "c3Ryb290Y2F4My5wN2MwHwYDVR0jBBgwFoAUxKexpHsscfrb4UuQdf/EFWCFiRAw\n" \
-                                "VAYDVR0gBE0wSzAIBgZngQwBAgEwPwYLKwYBBAGC3xMBAQEwMDAuBggrBgEFBQcC\n" \
-                                "ARYiaHR0cDovL2Nwcy5yb290LXgxLmxldHNlbmNyeXB0Lm9yZzA8BgNVHR8ENTAz\n" \
-                                "MDGgL6AthitodHRwOi8vY3JsLmlkZW50cnVzdC5jb20vRFNUUk9PVENBWDNDUkwu\n" \
-                                "Y3JsMB0GA1UdDgQWBBSoSmpjBH3duubRObemRWXv86jsoTANBgkqhkiG9w0BAQsF\n" \
-                                "AAOCAQEA3TPXEfNjWDjdGBX7CVW+dla5cEilaUcne8IkCJLxWh9KEik3JHRRHGJo\n" \
-                                "uM2VcGfl96S8TihRzZvoroed6ti6WqEBmtzw3Wodatg+VyOeph4EYpr/1wXKtx8/\n" \
-                                "wApIvJSwtmVi4MFU5aMqrSDE6ea73Mj2tcMyo5jMd6jmeWUHK8so/joWUoHOUgwu\n" \
-                                "X4Po1QYz+3dszkDqMp4fklxBwXRsW10KXzPMTZ+sOPAveyxindmjkW8lGy+QsRlG\n" \
-                                "PfZ+G6Z6h7mjem0Y+iWlkYcV4PIWL1iwBi8saCbGS5jN2p8M+X+Q7UNKEkROb3N6\n" \
-                                "KOqkqm57TH2H3eDJAkSnh6/DNFu0Qg==\n" \
-                                "-----END CERTIFICATE-----\n";
+"-----BEGIN CERTIFICATE-----\n" \
+"MIIEkjCCA3qgAwIBAgIQCgFBQgAAAVOFc2oLheynCDANBgkqhkiG9w0BAQsFADA/\n" \
+"MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT\n" \
+"DkRTVCBSb290IENBIFgzMB4XDTE2MDMxNzE2NDA0NloXDTIxMDMxNzE2NDA0Nlow\n" \
+"SjELMAkGA1UEBhMCVVMxFjAUBgNVBAoTDUxldCdzIEVuY3J5cHQxIzAhBgNVBAMT\n" \
+"GkxldCdzIEVuY3J5cHQgQXV0aG9yaXR5IFgzMIIBIjANBgkqhkiG9w0BAQEFAAOC\n" \
+"AQ8AMIIBCgKCAQEAnNMM8FrlLke3cl03g7NoYzDq1zUmGSXhvb418XCSL7e4S0EF\n" \
+"q6meNQhY7LEqxGiHC6PjdeTm86dicbp5gWAf15Gan/PQeGdxyGkOlZHP/uaZ6WA8\n" \
+"SMx+yk13EiSdRxta67nsHjcAHJyse6cF6s5K671B5TaYucv9bTyWaN8jKkKQDIZ0\n" \
+"Z8h/pZq4UmEUEz9l6YKHy9v6Dlb2honzhT+Xhq+w3Brvaw2VFn3EK6BlspkENnWA\n" \
+"a6xK8xuQSXgvopZPKiAlKQTGdMDQMc2PMTiVFrqoM7hD8bEfwzB/onkxEz0tNvjj\n" \
+"/PIzark5McWvxI0NHWQWM6r6hCm21AvA2H3DkwIDAQABo4IBfTCCAXkwEgYDVR0T\n" \
+"AQH/BAgwBgEB/wIBADAOBgNVHQ8BAf8EBAMCAYYwfwYIKwYBBQUHAQEEczBxMDIG\n" \
+"CCsGAQUFBzABhiZodHRwOi8vaXNyZy50cnVzdGlkLm9jc3AuaWRlbnRydXN0LmNv\n" \
+"bTA7BggrBgEFBQcwAoYvaHR0cDovL2FwcHMuaWRlbnRydXN0LmNvbS9yb290cy9k\n" \
+"c3Ryb290Y2F4My5wN2MwHwYDVR0jBBgwFoAUxKexpHsscfrb4UuQdf/EFWCFiRAw\n" \
+"VAYDVR0gBE0wSzAIBgZngQwBAgEwPwYLKwYBBAGC3xMBAQEwMDAuBggrBgEFBQcC\n" \
+"ARYiaHR0cDovL2Nwcy5yb290LXgxLmxldHNlbmNyeXB0Lm9yZzA8BgNVHR8ENTAz\n" \
+"MDGgL6AthitodHRwOi8vY3JsLmlkZW50cnVzdC5jb20vRFNUUk9PVENBWDNDUkwu\n" \
+"Y3JsMB0GA1UdDgQWBBSoSmpjBH3duubRObemRWXv86jsoTANBgkqhkiG9w0BAQsF\n" \
+"AAOCAQEA3TPXEfNjWDjdGBX7CVW+dla5cEilaUcne8IkCJLxWh9KEik3JHRRHGJo\n" \
+"uM2VcGfl96S8TihRzZvoroed6ti6WqEBmtzw3Wodatg+VyOeph4EYpr/1wXKtx8/\n" \
+"wApIvJSwtmVi4MFU5aMqrSDE6ea73Mj2tcMyo5jMd6jmeWUHK8so/joWUoHOUgwu\n" \
+"X4Po1QYz+3dszkDqMp4fklxBwXRsW10KXzPMTZ+sOPAveyxindmjkW8lGy+QsRlG\n" \
+"PfZ+G6Z6h7mjem0Y+iWlkYcV4PIWL1iwBi8saCbGS5jN2p8M+X+Q7UNKEkROb3N6\n" \
+"KOqkqm57TH2H3eDJAkSnh6/DNFu0Qg==\n" \
+"-----END CERTIFICATE-----\n";
 
 #endif
 
+// WiFi parameters
+struct VApConfig
+{
+  const char* ssid;
+  const char* pw;
+  const char* ip;   // optional static IP
+  const char* gw;   // Gateway (optional)
+  const char* mask; // Subnetmask (optional)
+};
+
+static const VApConfig gAPs[] =
+{
+  { "Camper", "1107199104041993", "", "", "" }, 
+  { "GOWLAN", "0404199311071991", "", "", "" },
+  { "Caravan", "1107199104041993", "", "", "" },
+};
 
 /*
-   WiFi parameters
-*/
-
-// WiFi SSID'S and passwords
-// the strongest WiFi station will be used
-const char* ssid[] = {"Camper", "GOWLAN", "Caravan"};
-const char* pw[] = {"1107199104041993", "0404199311071991", "1107199104041993"};
-
-/*
-   MQTT parameters
-   you can have more than one MQTT server, the first one that answers will have the connection
-   it is strongly recommended to use SSL if you send a username and password over the internet
-   ATTENTION: use a unique client id to connect to MQTT or you will be kicked out by another device
-   using your id
+  MQTT parameters
+  you can have more than one MQTT server, the first one that answers will have the connection
+  it is strongly recommended to use SSL if you send a username and password over the internet
+  ATTENTION: use a unique client id to connect to MQTT or you will be kicked out by another device
+  using your id
 */
 #define MQTT_MAX_RETRIES 3   // maximum retires to reach a MQTT broker
 const char* mqtt_server[] = {"192.168.169.227", "192.168.193.231", "192.168.68.223"};
@@ -117,8 +86,8 @@ int mqtt_server_count = sizeof(mqtt_server) / sizeof(mqtt_server[0]);
 // this is the MQTT prefix; below that we use the string from VE.Direct
 // e.g. /MPPT75-15/PID  for Product ID
 // e.g. /N/<VRM ID>/solarcharger/0/Pv/0/V
-String MQTT_PREFIX = "N/c0619ab5b2ba/vedirect/0";
-String MQTT_PARAMETER = MQTT_PREFIX + "/Parameter"; 
+const char* MQTT_PREFIX = "N/c0619ab5b2ba/vedirect/0/"; //must end with '/'
+const char* MQTT_PARAMETER = "N/c0619ab5b2ba/vedirect/0/Parameter"; 
 
 #ifdef USE_V_OTA
 /*
@@ -136,19 +105,19 @@ const char* ota_server_string[] = {"http://user:pw@serverIP/bin/file.php?", "htt
 int ota_server_count = sizeof(ota_server_string) / sizeof(ota_server_string[0]);
 
 /*
-   define the wait time between 2 attempts to update the firmware
-   300000 = every 5 minutes
+  define the wait time between 2 attempts to update the firmware
+  300000 = every 5 minutes
 */
 int OTA_WAIT_TIME = 300; // in s
 time_t last_ota;
 #endif
 
 /*
-   Software serial parameter
-   These are the pins for the VE.Direct connection
-   WARNING: if your VE.Direct device uses 5V please use a 1kOhm/2kOhm divider for the receive line
-   The sending line does not need any modification. The ESP uses 3.3V and that's it. A 5V device
-   should be able to read that voltage as input
+  Software serial parameter
+  These are the pins for the VE.Direct connection
+  WARNING: if your VE.Direct device uses 5V please use a 1kOhm/2kOhm divider for the receive line
+  The sending line does not need any modification. The ESP uses 3.3V and that's it. A 5V device
+  should be able to read that voltage as input
 */
 /*
 //Pinleiste
@@ -212,5 +181,3 @@ UART2: kannst du auf zwei freie Pins routen, z. B.: RX=GPIO33, TX=GPIO32
   Packets during OTA or OneWire will be discarded
 */
 int VE_WAIT_TIME = 1; // in s
-
-#endif // CONFIG_H

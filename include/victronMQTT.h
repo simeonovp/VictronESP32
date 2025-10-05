@@ -1,5 +1,7 @@
-#ifndef VICTRON_MQTT_H
-#define VICTRON_MQTT_H
+#pragma once
+#include <string>
+#include <sstream>
+#include <algorithm>
 
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -22,8 +24,8 @@ bool MQTTReconnect(const char* server, uint16_t port, const char* id, const char
     if (victronMQTT.connect(id, user, pw))
     {
       log_i("connected");
-      log_i("Subscribing to: %s", MQTT_PARAMETER.c_str());
-      victronMQTT.subscribe(MQTT_PARAMETER.c_str(), 1);
+      log_i("Subscribing to: %s", MQTT_PARAMETER);
+      victronMQTT.subscribe(MQTT_PARAMETER, 1);
       return true;
     }
     else
@@ -44,8 +46,8 @@ void OnMQTTData(const char* topic, const uint8_t* payload, unsigned int length)
   strncpy(s, reinterpret_cast<const char*>(payload), length);
   s[length] = '\0';
   log_d("MQTT OnMQTTData received: %s - \"%s\"", topic, s);
-  String t = String(topic);
-  if (t.equals(MQTT_PARAMETER))
+  auto t = std::string(topic);
+  if (t == MQTT_PARAMETER)
   {
     log_d("MQTT received new parameters");
 
@@ -60,7 +62,7 @@ void OnMQTTData(const char* topic, const uint8_t* payload, unsigned int length)
 #ifdef DEBUG
     for ( JsonPair kv : obj)
     {
-      log_d("key: %s, Value %s", kv.key().c_str(), kv.value().as<String>().c_str());
+      log_d("key: %s, Value %s", kv.key().c_str(), kv.value().as<std::string>().c_str());
     }
 #endif
 
@@ -134,13 +136,17 @@ void MQTTPublish(const std::string& key, const std::string& value)
     MQTTStart();
   }
   victronMQTT.loop();
-  auto topic = MQTT_PREFIX + "/" + key.c_str();
-  topic.replace("#", ""); // # in a topic is a no go for MQTT
 
-  String payload = "{\"value\":";
-  payload += value.c_str();
-  payload += '}';
-  payload.replace("\r\n", "");
+  auto topic = MQTT_PREFIX + key;
+  //topic.replace("#", ""); // # in a topic is a no go for MQTT
+
+  // {"value":123,"unit":"W","ts":456789} TODO
+  std::ostringstream oss;
+  oss << "{\"value\":" << value << '}';
+  auto payload = oss.str();
+  // remove "\r\n"
+  payload.erase(std::remove(payload.begin(), payload.end(), '\r'), payload.end());
+  payload.erase(std::remove(payload.begin(), payload.end(), '\n'), payload.end());
 
   if (victronMQTT.publish(topic.c_str(), payload.c_str()))
   {
@@ -154,8 +160,8 @@ void MQTTPublish(const std::string& key, const std::string& value)
   if (mqtt_param_rec)
   {
     // avoid loops by sending only if we received a valid parameter
-    log_i("Removing parameter from Queue: %s", MQTT_PARAMETER.c_str());
-    victronMQTT.publish(MQTT_PARAMETER.c_str(), "", true);
+    log_i("Removing parameter from Queue: %s", MQTT_PARAMETER);
+    victronMQTT.publish(MQTT_PARAMETER, "", true);
   }
 }
 
@@ -166,7 +172,7 @@ bool MQTTSendOPInfo()
     MQTTStart();
   }
   victronMQTT.loop();
-  String topic = MQTT_PREFIX + "/" + "UTCBootTime";
+  auto topic = std::string(MQTT_PREFIX) + "UTCBootTime";
   if (victronMQTT.publish(topic.c_str(), asctime(localtime(&last_boot))))
   {
     //sip++ log_i("MQTT message sent succesfully: %s: \"%s\"", topic.c_str(), asctime(localtime(&last_boot)));
@@ -177,5 +183,3 @@ bool MQTTSendOPInfo()
   }
   return true;
 }
-
-#endif //VICTRON_MQTT_H

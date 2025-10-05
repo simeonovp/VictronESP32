@@ -1,34 +1,5 @@
-/*
-   VE.Direct WiFi code.
 
-   GITHUB Link
-
-   MIT License
-
-   Copyright (c) 2020 Ralf Lehmann
-
-
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
-
-   The above copyright notice and this permission notice shall be included in all
-   copies or substantial portions of the Software.
-
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-   SOFTWARE.
-*/
-
-#ifndef VERDIRECTWIFI_H
-#define VERDIRECTWIFI_H
+#pragma once
 
 #include <WiFi.h>
 #include <WiFiMulti.h>
@@ -39,22 +10,29 @@
 #include <WiFiClient.h>
 #endif
 
-WiFiMulti WiFiMulti;
+WiFiMulti gMultiWiFi;
 #ifdef USE_SSL
 WiFiClientSecure espClient;
 #else
 WiFiClient espClient;
 #endif
 
-int ssid_count = sizeof(ssid) / sizeof(ssid[0]);
+int ap_count = sizeof(gAPs) / sizeof(gAPs[0]);
+
+inline bool NullOrEmpty(const char* s)
+{
+  return (nullptr == s) || ('\0' == *s );
+}
 
 // Set time via NTP, as required for x.509 validation
-void setClock() {
+void setClock()
+{
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");  // UTC
 
   log_d("Waiting for NTP time sync: ");
   time_t now = time(nullptr);
-  while (now < 8 * 3600 * 2) {
+  while (now < 8 * 3600 * 2)
+  {
     yield();
     delay(500);
     now = time(nullptr);
@@ -66,47 +44,78 @@ void setClock() {
   log_d("NTP time %s", asctime(&timeinfo));
 }
 
-boolean startWiFi() {
-  log_d("Number of ssid's: %d", ssid_count);
-  // add all ssid's to WiFiMulti
-  for (int i = 0; i < ssid_count; i++) {
-    WiFiMulti.addAP(ssid[i], pw[i]);
+bool startWiFi()
+{
+  log_d("Number of ap's: %d", ap_count);
+  // add all AP's to gMultiWiFi
+  for (int i = 0; i < ap_count; i++)
+  {
+    log_i("Adding AP: %s", gAPs[i].ssid);
+    gMultiWiFi.addAP(gAPs[i].ssid, gAPs[i].pw);
   }
-  if ((WiFiMulti.run() == WL_CONNECTED)) {
-    log_i("WiFi connected");
+
+  log_i("Connecting to WiFi...");
+
+  auto startAttemptTime = millis();
+
+  while (gMultiWiFi.run() != WL_CONNECTED)
+  {
+    if (millis() - startAttemptTime > 10000)  // 10s Timeout
+    {
+      log_e("WiFi connection timeout");
+      return false;
+    }
+    delay(500);
+  }
+
+  log_i("Connected to: %s", WiFi.SSID().c_str());
+  log_i("IP before static config: %s", WiFi.localIP().toString().c_str());
+
+  // Suche nach passendem AP in gAPs
+  for (int i = 0; i < ap_count; i++)
+  {
+    if ((WiFi.SSID() == gAPs[i].ssid) && !NullOrEmpty(gAPs[i].ip))
+    {
+      IPAddress ip, gw, mask;
+      ip.fromString(gAPs[i].ip);
+      gw.fromString(gAPs[i].gw ? gAPs[i].gw : "192.168.1.1");
+      mask.fromString(gAPs[i].mask ? gAPs[i].mask : "255.255.255.0");
+
+      WiFi.config(ip, gw, mask);
+      log_i("Applied static IP: %s", ip.toString().c_str());
+      break;
+    }
+  }
 
 #ifdef USE_SSL
-    //WiFiClientSecure client;
-    espClient.setCACert(rootCACertificate);
+  //WiFiClientSecure client;
+  espClient.setCACert(rootCACertificate);
 #endif
 
-    // Reading data over SSL may be slow, use an adequate timeout
-    espClient.setTimeout(24000 / 1000); // timeout argument is defined in seconds for setTimeout
-    return true;
-  }
-  log_e("WiFi could not be started");
-  return false;
+  espClient.setTimeout(24);  // Sekunden
+  return true;
 }
 
 // check if WiFi is still connected 
 // if not, try to reconnect
-boolean checkWiFi(){
+bool checkWiFi()
+{
   if ( WiFi.status() != WL_CONNECTED ){
     return startWiFi();
   }
   return true;
 }
 
-boolean endWiFi() {
+bool endWiFi()
+{
   log_d("Stopping WiFi ... ");
-  boolean r = WiFi.disconnect();
+  bool r = WiFi.disconnect();
   delay(1000);
-  if ( WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED)
+  {
     log_e("ERROR: unable to disconnect");
     return false;
   }
   log_i("disconnected successfully");
   return true;
 }
-
-#endif
