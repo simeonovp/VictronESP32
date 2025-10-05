@@ -60,9 +60,6 @@ struct VApConfig
 
 static const VApConfig gAPs[] =
 {
-  { "Camper", "1107199104041993", "", "", "" }, 
-  { "GOWLAN", "0404199311071991", "", "", "" },
-  { "Caravan", "1107199104041993", "", "", "" },
 };
 
 /*
@@ -79,8 +76,8 @@ const uint16_t mqtt_port[] = {1883, 1883, 1883};
 // SSL ports
 //const uint16_t mqtt_port[] = {8883, 8883, 8883};
 const char* mqtt_clientID[] = {"victronESP32_1", "victronESP32_1", "victronESP32_1"};
-const char* mqtt_username[] = {"admin", NULL, NULL};
-const char* mqtt_pw[] = {"888888", NULL, NULL};
+const char* mqtt_username[] = {"", NULL, NULL};
+const char* mqtt_pw[] = {"", NULL, NULL};
 int mqtt_server_count = sizeof(mqtt_server) / sizeof(mqtt_server[0]);
 
 // this is the MQTT prefix; below that we use the string from VE.Direct
